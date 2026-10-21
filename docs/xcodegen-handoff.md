@@ -45,7 +45,7 @@ The project currently uses synchronized source folders, has two Xcode targets (`
 - Keep the configuration-specific test host paths correct for `Hex Debug.app` and `Hex.app`.
 - Development signing uses Apple Development and `HEX_DEVELOPMENT_TEAM`, with local overrides in ignored `Config/Local.xcconfig`.
 - This Mac's ignored local configuration uses Astere Software LLC team `WW59U84Z7X`. Do not commit that local file or replace it during generation.
-- Distribution overrides signing through command-line settings and Xcode Developer ID export. Preserve hardened runtime, sandbox, entitlements, and embedded Sparkle helper signing.
+- Distribution overrides signing through command-line settings and Xcode Developer ID export. Preserve hardened runtime, privacy entitlements, and embedded Sparkle helper signing. App Sandbox was subsequently removed; see [storage and migration](storage.md).
 - Keep `Info.plist` version values driven by `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION`. Existing source defaults are `0.8.5` and `92`; do not bump them for the migration.
 
 ### Build, resources, and tests

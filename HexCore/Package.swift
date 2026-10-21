@@ -21,6 +21,8 @@ let package = Package(
 	            .product(name: "Dependencies", package: "swift-dependencies"),
 	            .product(name: "DependenciesMacros", package: "swift-dependencies"),
 	            .product(name: "Logging", package: "swift-log"),
+            // Storage uses isTesting to isolate hosted tests from real user data.
+            .product(name: "IssueReporting", package: "xctest-dynamic-overlay"),
 	        ],
 	        path: "Sources/HexCore",
 	        linkerSettings: [

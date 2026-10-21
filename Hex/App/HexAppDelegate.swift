@@ -3,7 +3,6 @@ import HexCore
 import SwiftUI
 
 private let appLogger = HexLog.app
-private let cacheLogger = HexLog.caches
 
 class HexAppDelegate: NSObject, NSApplicationDelegate {
 	var invisibleWindow: InvisibleWindow?
@@ -17,8 +16,6 @@ class HexAppDelegate: NSObject, NSApplicationDelegate {
 
 	func applicationDidFinishLaunching(_: Notification) {
 		DiagnosticsLogging.bootstrapIfNeeded()
-		// Ensure Parakeet/FluidAudio caches live under Application Support, not ~/.cache
-		configureLocalCaches()
 		if isTesting {
 			appLogger.debug("Running in testing mode")
 			return
@@ -87,18 +84,6 @@ class HexAppDelegate: NSObject, NSApplicationDelegate {
 		}
 	}
 
-	/// Sets XDG_CACHE_HOME so FluidAudio stores models under our app's
-	/// Application Support folder, keeping everything in one place.
-    private func configureLocalCaches() {
-        do {
-            let cache = try URL.hexApplicationSupport.appendingPathComponent("cache", isDirectory: true)
-            try FileManager.default.createDirectory(at: cache, withIntermediateDirectories: true)
-            setenv("XDG_CACHE_HOME", cache.path, 1)
-            cacheLogger.info("XDG_CACHE_HOME set to \(cache.path)")
-        } catch {
-            cacheLogger.error("Failed to configure local caches: \(error.localizedDescription)")
-        }
-    }
 
 	func presentMainView() {
 		guard invisibleWindow == nil else {

@@ -23,7 +23,7 @@ extension SharedReaderKey
 extension URL {
 	static var hexSettingsURL: URL {
 		get {
-			URL.hexMigratedFileURL(named: "hex_settings.json")
+			HexStoragePaths.live.settings
 		}
 	}
 }

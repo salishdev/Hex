@@ -148,9 +148,8 @@ targets:
         DEAD_CODE_STRIPPING: "YES"
         DEVELOPMENT_ASSET_PATHS: "\"Hex/Preview Content\""
         DEVELOPMENT_TEAM: "$(HEX_DEVELOPMENT_TEAM)"
-        ENABLE_APP_SANDBOX: "YES"
+        ENABLE_APP_SANDBOX: "NO"
         ENABLE_HARDENED_RUNTIME: "YES"
-        ENABLE_OUTGOING_NETWORK_CONNECTIONS: "YES"
         ENABLE_PREVIEWS: "YES"
         ENABLE_RESOURCE_ACCESS_AUDIO_INPUT: "YES"
         ENABLE_RESOURCE_ACCESS_CALENDARS: "NO"
@@ -158,7 +157,6 @@ targets:
         ENABLE_RESOURCE_ACCESS_CONTACTS: "NO"
         ENABLE_RESOURCE_ACCESS_LOCATION: "NO"
         ENABLE_RESOURCE_ACCESS_PHOTO_LIBRARY: "NO"
-        ENABLE_USER_SELECTED_FILES: readwrite
         GENERATE_INFOPLIST_FILE: "YES"
         INFOPLIST_FILE: Hex/Info.plist
         INFOPLIST_KEY_NSAppleEventsUsageDescription: "Hex needs to control keyboard events to simulate paste operations."

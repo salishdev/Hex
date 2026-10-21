@@ -50,7 +50,7 @@ extension SharedReaderKey
 extension URL {
 	static var transcriptionHistoryURL: URL {
 		get {
-			URL.hexMigratedFileURL(named: "transcription_history.json")
+			HexStoragePaths.live.history
 		}
 	}
 }

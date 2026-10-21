@@ -73,18 +73,19 @@ The app uses **The Composable Architecture (TCA)** for state management. Key arc
 
 ### Storage Locations
 
-- WhisperKit models
-  - `~/Library/Application Support/<bundle-id>/models/argmaxinc/whisperkit-coreml/<model>`
-- Parakeet (FluidAudio)
-  - We set `XDG_CACHE_HOME` on launch so Parakeet caches under the app container:
-  - `~/Library/Containers/<bundle-id>/Data/Library/Application Support/FluidAudio/Models/parakeet-tdt-0.6b-v3-coreml`
-  - Legacy `~/.cache/fluidaudio/Models/…` is not visible to the sandbox; re‑download or import.
+See [docs/storage.md](docs/storage.md) for the full layout and copy-only migration.
+
+- Settings: `${XDG_CONFIG_HOME:-~/.config}/hex/settings.json` (Debug: `hex-debug`). Only absolute XDG roots are honored. Other bundle IDs use their bundle ID as the config directory name.
+- History and recordings: `~/Library/Application Support/<bundle-id>/history/` and `recordings/`.
+- Installed models: `~/Library/Application Support/<bundle-id>/models/`, including FluidAudio models under `FluidAudio/`.
+- Disposable caches: `~/Library/Caches/<bundle-id>/`. Temporary recordings use system temporary storage.
+- Do not set `XDG_CACHE_HOME` globally. Pass explicit model/cache directories to libraries.
 
 ### Progress + Availability
 
-- WhisperKit: native progress
-- Parakeet: best‑effort progress by polling the model directory size during download
-- Availability detection scans both `Application Support/FluidAudio/Models` and our app cache path
+- WhisperKit: native progress.
+- Parakeet: best-effort progress by polling its explicit installed model directory.
+- Availability, loading, deletion, and Show in Finder use the same identity-specific model root.
 
 ## Building & Running
 
@@ -95,22 +96,9 @@ The app uses **The Composable Architecture (TCA)** for state management. Key arc
 - WhisperKit: `https://github.com/argmaxinc/WhisperKit`
 - FluidAudio: `https://github.com/FluidInference/FluidAudio.git` (link `FluidAudio` to Hex target)
 
-### Entitlements (Sandbox)
+### Signing and permissions
 
-- `com.apple.security.app-sandbox = true`
-- `com.apple.security.network.client = true` (HF downloads)
-- `com.apple.security.files.user-selected.read-write = true` (optional import)
-- `com.apple.security.automation.apple-events = true` (media control)
-
-### Cache root (Parakeet)
-
-Set at app launch and logged:
-
-```
-XDG_CACHE_HOME = ~/Library/Containers/<bundle-id>/Data/Library/Application Support/<bundle-id>/cache
-```
-
-FluidAudio models reside under `Application Support/FluidAudio/Models`.
+App Sandbox is disabled for direct distribution. Keep hardened runtime, Developer ID signing/notarization, audio input and automation entitlements, and macOS privacy usage descriptions. Debug retains Apple Development signing and a separate identity.
 
 ## UI
 
@@ -120,8 +108,7 @@ FluidAudio models reside under `Application Support/FluidAudio/Models`.
 ## Troubleshooting
 
 - Repeated mic prompts during debug: ensure Debug signing uses "Apple Development" so TCC sticks
-- Sandbox network errors (‑1003): add `com.apple.security.network.client = true` (already set)
-- Parakeet not detected: ensure it resides under the container path above; downloading from Hex places it correctly.
+- Parakeet not detected: check the identity-specific installed model path in docs/storage.md; downloading from Hex places it correctly.
 
 ## Changelog Workflow Expectations
 

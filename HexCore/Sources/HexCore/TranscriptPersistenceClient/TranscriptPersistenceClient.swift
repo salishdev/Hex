@@ -18,7 +18,7 @@ extension TranscriptPersistenceClient: DependencyKey {
         return TranscriptPersistenceClient(
             save: { result, audioURL, duration, sourceAppBundleID, sourceAppName in
                 let fm = FileManager.default
-                let recordingsFolder = try URL.hexApplicationSupport.appendingPathComponent("Recordings", isDirectory: true)
+                let recordingsFolder = HexStoragePaths.live.recordings
                 try fm.createDirectory(at: recordingsFolder, withIntermediateDirectories: true)
                 
                 let filename = "\(Date().timeIntervalSince1970).wav"

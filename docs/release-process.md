@@ -1,6 +1,6 @@
 # Distribution through GitHub Releases
 
-This fork packages locally using Apple Developer ID signing and notarization. Artifacts are reviewed and published on GitHub separately. There is no tag-triggered publishing workflow and no S3 dependency.
+This fork packages locally using Apple Developer ID signing and notarization. App Sandbox is disabled; hardened runtime, audio input and automation entitlements, privacy descriptions, Developer ID signing, and notarization remain required. See [storage and migration](storage.md). Artifacts are reviewed and published on GitHub separately. There is no tag-triggered publishing workflow and no S3 dependency.
 
 The product name remains Hex while branding is being decided. Before the first public release, finalize the name and bundle ID (`Config/Fork.xcconfig`); changing a published bundle ID creates a separate application with new permissions and storage.
 

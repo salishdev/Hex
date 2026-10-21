@@ -357,7 +357,7 @@ actor TranscriptionClientLive {
       // default repo/host (Hugging Face) by omitting the repo/host arg.
       let tempFolder = try await WhisperKit.download(
         variant: variant,
-        downloadBase: nil,
+        downloadBase: URL.hexCachesDirectory.appendingPathComponent("WhisperKit", isDirectory: true),
         useBackgroundSession: false,
         progressCallback: { progress in
           progressCallback(progress)
