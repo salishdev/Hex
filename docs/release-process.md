@@ -1,154 +1,78 @@
-# Hex Release Process
+# Distribution through GitHub Releases
 
-## Overview
+This fork packages locally using Apple Developer ID signing and notarization. Artifacts are reviewed and published on GitHub separately. There is no tag-triggered publishing workflow and no S3 dependency.
 
-Releases are triggered by pushing git tags. The system automatically:
-- Builds & signs the app
-- Notarizes with Apple
-- Creates DMG + ZIP artifacts
-- Uploads to S3 for Sparkle updates
-- Creates GitHub release
+The product name remains Hex while branding is being decided. Before the first public release, finalize the name and bundle ID (`Config/Fork.xcconfig`); changing a published bundle ID creates a separate application with new permissions and storage.
 
-## Quick Start
+## One-time setup
 
-```bash
-# Create and push a tag
-git tag v0.2.12
-git push origin v0.2.12
+1. Install full Xcode, Bun, and GitHub CLI. Run `bun install --frozen-lockfile` at the repository root.
+2. Install your Developer ID Application certificate and private key in Keychain. Inspect available identities with `security find-identity -v -p codesigning`.
+3. This machine already has the working profile `apple-developer-store-credentials`. On another machine, configure credentials locally (choose a new profile name):
 
-# GitHub Actions will automatically:
-# 1. Build Hex v0.2.12
-# 2. Notarize with Apple
-# 3. Upload to S3 (Sparkle)
-# 4. Create GitHub release with DMG + ZIP
-```
+   ```bash
+   xcrun notarytool store-credentials hex-notary --team-id WW59U84Z7X
+   ```
 
-## Architecture
+   Enter your Apple ID and an app-specific password in the secure prompts. Alternatively use the API-key options supported by `notarytool store-credentials --help`. Never add credentials or exported signing keys to the repo.
 
-**Tag-based versioning:**
-- Tag `v0.2.12` → builds version `0.2.12`
-- Updates `Info.plist` and `project.pbxproj`
-- Auto-increments build number
+This development machine has Astere Software LLC certificates for team `WW59U84Z7X`. The packaging command requires an explicit team and keychain profile so other developers can use their own accounts.
 
-**Effect Config system:**
-```typescript
-// Reads from environment variables
-BUCKET=hex-updates              // Default
-VERSION=v0.2.12                  // From git tag
-APPLE_ID=your@email.com         // CI only
-APPLE_ID_PASSWORD=xxxx-xxxx     // CI only
-AWS_ACCESS_KEY_ID=...           // Required
-AWS_SECRET_ACCESS_KEY=...       // Required
-```
+## Prepare a version
 
-**Local vs CI:**
-- **Local**: Uses keychain profile `AC_PASSWORD`
-- **CI**: Uses `APPLE_ID` / `APPLE_ID_PASSWORD` env vars
-
-## Local Testing
+The release maintainer reviews pending changesets, then runs:
 
 ```bash
-# Setup keychain profile (one-time)
-xcrun notarytool store-credentials "AC_PASSWORD"
-
-# Test release locally (doesn't upload)
-cd tools
-VERSION=v0.2.12-test \
-  AWS_ACCESS_KEY_ID=... \
-  AWS_SECRET_ACCESS_KEY=... \
-  bun run release.ts
+bun run changeset:status
+bun run changeset:version
+bun run sync-changelog
 ```
 
-## Required Secrets
+Review `package.json`, `CHANGELOG.md`, and `Hex/Resources/changelog.md`, then commit the release changes. Agents should only create changeset fragments, not process them.
 
-Set via: `gh secret set SECRET_NAME`
+The archive takes its marketing version from `package.json` and its build number from `BUILD_NUMBER`. It does not edit source metadata. Choose an unused integer greater than the last shipped build; upstream ended at 92. Never reuse a build number for a different artifact.
 
-### Apple (Notarization)
-```bash
-APPLE_ID                    # your@email.com
-APPLE_ID_PASSWORD          # App-specific password from appleid.apple.com
-TEAM_ID                     # QC99C9JE59
-```
+## Package
 
-### Code Signing
-```bash
-MACOS_CERTIFICATE          # base64 -i cert.p12 | pbcopy
-MACOS_CERTIFICATE_PWD      # Certificate password
-```
-
-### AWS (S3 / Sparkle)
-```bash
-AWS_ACCESS_KEY_ID
-AWS_SECRET_ACCESS_KEY
-```
-
-## Artifacts
-
-Each release creates:
-- `Hex-{version}.dmg` - Signed, notarized DMG
-- `Hex-{version}.zip` - For Homebrew cask
-- `hex-latest.dmg` - Always points to latest
-- `appcast.xml` - Sparkle update feed
-
-## Homebrew Cask
-
-After first release, update `hex.rb`:
+Check prerequisites first (replace the sample build number):
 
 ```bash
-# Get SHA256
-curl -L https://github.com/kitlangton/Hex/releases/download/v0.2.12/Hex-v0.2.12.zip -o Hex.zip
-shasum -a 256 Hex.zip
-
-# Update hex.rb with version and SHA
+TEAM_ID=WW59U84Z7X BUILD_NUMBER=93 NOTARY_PROFILE=apple-developer-store-credentials \
+  bun run release --check
 ```
 
-Submit to:
-- **Personal tap**: `homebrew-hex` (easier)
-- **Official cask**: PR to `homebrew/homebrew-cask`
+Then, from a clean committed checkout:
 
-## Critical Constraints
+```bash
+TEAM_ID=WW59U84Z7X BUILD_NUMBER=93 NOTARY_PROFILE=apple-developer-store-credentials \
+  bun run release
+```
 
-### CFBundleVersion Requirements
+If multiple distribution identities are installed, set `SIGNING_IDENTITY` to the exact certificate name. The script archives for Apple Silicon, exports using Xcode’s Developer ID export, verifies signatures and metadata, submits the app to Apple, staples its ticket, builds a ZIP and DMG, signs/notarizes/staples the DMG, and writes SHA-256 checksums.
 
-**NEVER manually edit CFBundleVersion or reuse build numbers.** The release pipeline automatically increments CFBundleVersion with each release to ensure Sparkle can properly generate the appcast feed.
+Outputs are in `build/releases/<version>-<build>/`. A failed run retains intermediate artifacts and logs; inspect the error before removing that output folder and retrying. If Apple rejects an upload, use the submission ID with `xcrun notarytool log <id> --keychain-profile apple-developer-store-credentials` to inspect the reason.
 
-- `updates/` directory must only contain DMGs with strictly increasing CFBundleVersion values
-- Duplicate build numbers will block appcast generation and break updates for existing users
-- The release script preserves the last 3 DMGs in `updates/` for delta generation
-- Older versions are automatically moved to `updates/old_updates/`
+Test the packaged app from `/Applications` on a clean account or another Mac: first launch, permissions, model download, transcription, paste, and the releases link. Confirm microphone access and hotkeys after relaunch.
 
-If you accidentally create a release with a duplicate CFBundleVersion:
-1. Delete the problematic DMG from `updates/`
-2. Move any other old DMGs to `updates/old_updates/`
-3. Regenerate appcast: `./bin/generate_appcast --maximum-deltas 3 updates`
-4. Re-upload cleaned artifacts to S3
+## Publish after review
 
-## Troubleshooting
+Create a draft release and upload the reviewed files. For example, after replacing the version and build:
 
-### Notarization fails
-- Check Apple ID credentials
-- Verify app-specific password
-- Ensure `TEAM_ID` is correct
+```bash
+gh release create v0.8.6 \
+  build/releases/0.8.6-93/Hex-0.8.6.zip \
+  build/releases/0.8.6-93/Hex-0.8.6.dmg \
+  build/releases/0.8.6-93/SHA256SUMS \
+  --repo salishdev/Hex --target "$(git rev-parse HEAD)" \
+  --draft --title 'Hex 0.8.6' --notes-file /path/to/release-notes.md
+```
 
-### S3 upload fails
-- Verify AWS credentials
-- Check bucket permissions
-- Ensure bucket exists
+Use release-specific notes from the changelog, including any known limitations. Verify the draft’s target commit and attachments before publishing in GitHub. Packaging alone never creates a tag or release.
 
-### Build fails
-- Check Xcode version (16.2)
-- Verify code signing setup
-- Check certificate validity
+## Updates and Homebrew
 
-### Sparkle updates not appearing
-- Verify appcast.xml lists versions in descending CFBundleVersion order
-- Check that CFBundleVersion values are unique and strictly increasing
-- Ensure no duplicate build numbers exist in updates/
-- Test feed URL: https://hex-updates.s3.amazonaws.com/appcast.xml
+The upstream Sparkle feed and public key have been removed. “Check for Updates” opens `https://github.com/salishdev/Hex/releases`. For automatic installation later, generate a new Sparkle key pair, add the fork-owned `SUFeedURL` and `SUPublicEDKey`, sign update archives, and publish an appcast. Keep the private key in Keychain. Test a real update between two signed fork builds before shipping it.
 
-## Files
+Homebrew distribution can follow the first public release; create a fork-owned cask with an exact version and SHA-256. The old upstream cask has been removed to avoid installing upstream builds.
 
-- `tools/release.ts` - Main release script (Effect)
-- `.github/workflows/release.yml` - CI workflow
-- `bin/generate_appcast` - Sparkle appcast generator
-- `hex.rb` - Homebrew cask formula
+References: [Apple notarization workflow](https://developer.apple.com/documentation/security/customizing-the-notarization-workflow), [Sparkle setup and signing](https://sparkle-project.org/documentation/).

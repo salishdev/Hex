@@ -9,8 +9,6 @@ updates/
 *.xcuserstate
 buildServer.json
 bin
-scripts
-tools
 ExportOptions.plist
 HexCore/.build
 HexCore/.swiftpm/xcode/xcuserdata/kit.xcuserdatad/xcschemes
@@ -21,3 +19,11 @@ node_modules/
 
 # Claude
 .claude/
+
+# Local signing configuration and credentials
+Config/Local.xcconfig
+.env
+.env.*
+*.p12
+*.p8
+*.cer

@@ -1,3 +1,5 @@
+> Historical upstream document. For the fork’s current setup, see [release-process.md](release-process.md).
+
 # Rust Beta Banner
 
 The legacy Swift app shows an inline banner at the top of Settings for Apple

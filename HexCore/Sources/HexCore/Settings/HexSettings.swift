@@ -44,6 +44,7 @@ public struct HexSettings: Codable, Equatable, Sendable {
 	public var pasteLastTranscriptHotkey: HotKey?
 	public var hasCompletedModelBootstrap: Bool
 	public var hasCompletedStorageMigration: Bool
+	// Retained for compatibility with previously encoded settings.
 	public var hasDismissedRustBetaBanner: Bool
 	public var wordRemovalsEnabled: Bool
 	public var wordRemovals: [WordRemoval]

@@ -1,0 +1,5 @@
+// Shared identity for this fork. Debug gets a separate sandbox and permissions.
+HEX_BUNDLE_ID = com.salishdev.Hex
+// Set locally, in Xcode, or with HEX_DEVELOPMENT_TEAM=... on xcodebuild.
+HEX_DEVELOPMENT_TEAM =
+#include? "Local.xcconfig"

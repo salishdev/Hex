@@ -10,7 +10,7 @@ public extension URL {
 				appropriateFor: nil,
 				create: true
 			)
-			let hexDirectory = appSupport.appendingPathComponent("com.kitlangton.Hex", isDirectory: true)
+			let hexDirectory = appSupport.appendingPathComponent(Bundle.main.bundleIdentifier ?? "com.salishdev.Hex", isDirectory: true)
 			try fm.createDirectory(at: hexDirectory, withIntermediateDirectories: true)
 			return hexDirectory
 		}

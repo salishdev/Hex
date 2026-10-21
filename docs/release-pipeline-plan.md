@@ -1,3 +1,5 @@
+> Historical upstream document. For the fork’s current setup, see [release-process.md](release-process.md).
+
 # Hex Release Pipeline - GitHub Actions Plan
 
 ## Context

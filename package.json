@@ -6,13 +6,15 @@
   "license": "MIT",
   "type": "module",
   "scripts": {
-    "release": "cd tools && bun run build",
+    "release": "bash scripts/package-release.sh",
     "changeset": "changeset",
     "changeset:add": "changeset",
     "changeset:add-ai": "bun run tools/scripts/add-changeset.ts",
     "changeset:status": "changeset status --verbose",
     "changeset:version": "changeset version",
-    "sync-changelog": "bun run tools/scripts/sync-changelog.ts"
+    "sync-changelog": "bun run tools/scripts/sync-changelog.ts",
+    "dev": "bash scripts/dev.sh",
+    "test:core": "cd HexCore && swift test"
   },
   "devDependencies": {
     "@changesets/cli": "^2.31.0"

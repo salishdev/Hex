@@ -10,7 +10,7 @@ Hex is a macOS menu bar application for on‑device voice‑to‑text. It suppor
 
 ```bash
 # Build the app
-xcodebuild -scheme Hex -configuration Release
+bun run dev
 
 # Run tests (must be run from HexCore directory for unit tests)
 cd HexCore && swift test
@@ -42,7 +42,7 @@ The app uses **The Composable Architecture (TCA)** for state management. Key arc
 - **WhisperKit**: Core ML transcription (tracking main branch)
 - **FluidAudio (Parakeet)**: Core ML ASR (multilingual) default model
 - **Sauce**: Keyboard event monitoring
-- **Sparkle**: Auto-updates (feed: https://hex-updates.s3.amazonaws.com/appcast.xml)
+- **Sparkle**: Optional auto-updates; inactive until this fork has its own feed and signing key. Update checks currently open this fork’s GitHub Releases.
 - **Swift Composable Architecture**: State management
 - **Inject** Hot Reloading for SwiftUI
 
@@ -73,10 +73,10 @@ The app uses **The Composable Architecture (TCA)** for state management. Key arc
 ### Storage Locations
 
 - WhisperKit models
-  - `~/Library/Application Support/com.kitlangton.Hex/models/argmaxinc/whisperkit-coreml/<model>`
+  - `~/Library/Application Support/<bundle-id>/models/argmaxinc/whisperkit-coreml/<model>`
 - Parakeet (FluidAudio)
   - We set `XDG_CACHE_HOME` on launch so Parakeet caches under the app container:
-  - `~/Library/Containers/com.kitlangton.Hex/Data/Library/Application Support/FluidAudio/Models/parakeet-tdt-0.6b-v3-coreml`
+  - `~/Library/Containers/<bundle-id>/Data/Library/Application Support/FluidAudio/Models/parakeet-tdt-0.6b-v3-coreml`
   - Legacy `~/.cache/fluidaudio/Models/…` is not visible to the sandbox; re‑download or import.
 
 ### Progress + Availability
@@ -87,7 +87,7 @@ The app uses **The Composable Architecture (TCA)** for state management. Key arc
 
 ## Building & Running
 
-- macOS 14+, Xcode 15+
+- macOS 14+, Xcode 26+
 
 ### Packages
 
@@ -106,7 +106,7 @@ The app uses **The Composable Architecture (TCA)** for state management. Key arc
 Set at app launch and logged:
 
 ```
-XDG_CACHE_HOME = ~/Library/Containers/com.kitlangton.Hex/Data/Library/Application Support/com.kitlangton.Hex/cache
+XDG_CACHE_HOME = ~/Library/Containers/<bundle-id>/Data/Library/Application Support/<bundle-id>/cache
 ```
 
 FluidAudio models reside under `Application Support/FluidAudio/Models`.
@@ -140,77 +140,15 @@ FluidAudio models reside under `Application Support/FluidAudio/Models`.
 - Follow up with as much context as needed in the body. Include the rationale, notable tradeoffs, relevant logs, or reproduction steps—future debugging benefits from having the full story directly in git history.
 - Reference any related GitHub issues in the body if the change tracks ongoing work.
 
-## Releasing a New Version
+## Fork Development and Distribution
 
-Releases are automated via a local CLI tool that handles building, signing, notarizing, and uploading.
-
-### Prerequisites
-
-1. **AWS credentials** must be set (for S3 uploads):
-   ```bash
-   export AWS_ACCESS_KEY_ID=...
-   export AWS_SECRET_ACCESS_KEY=...
-   ```
-
-2. **Notarization credentials** stored in keychain (one-time setup):
-   ```bash
-   xcrun notarytool store-credentials "AC_PASSWORD"
-   ```
-
-3. **Dependencies installed** at project root and in tools:
-   ```bash
-   bun install                # project root (for changesets)
-   cd tools && bun install    # tools dependencies
-   ```
-
-### Release Steps
-
-1. **Ensure all changes are committed** - the release tool requires a clean working tree
-
-2. **Ensure changesets exist** - any user-facing change should have a `.changeset/*.md` file:
-   ```bash
-   bun run changeset:add-ai patch "Fix microphone selection"
-   ```
-
-3. **Run the release command** from project root:
-   ```bash
-   bun run tools/src/cli.ts release
-   ```
-
-### What the Release Tool Does
-
-1. Checks for clean working tree
-2. Finds pending changesets and applies them (bumps version in `package.json`)
-3. Syncs changelog to `Hex/Resources/changelog.md`
-4. Updates `Info.plist` and `project.pbxproj` with new version
-5. Increments build number
-6. Cleans DerivedData and archives with xcodebuild
-7. Exports and signs with Developer ID
-8. Notarizes app with Apple
-9. Creates and signs DMG
-10. Notarizes DMG
-11. Generates Sparkle appcast
-12. Uploads to S3 (versioned DMG + `hex-latest.dmg` + appcast.xml)
-13. Commits version changes, creates git tag, pushes
-14. Creates GitHub release with DMG and ZIP attachments
-
-### If No Changesets Exist
-
-The tool will prompt you to either:
-- Stop and create a changeset (recommended)
-- Continue with manual version bump (useful for re-running failed releases)
-
-### Artifacts
-
-Each release produces:
-- `Hex-{version}.dmg` - Signed, notarized DMG
-- `Hex-{version}.zip` - For Homebrew cask
-- `hex-latest.dmg` - Always points to latest
-- `appcast.xml` - Sparkle update feed
-
-### Troubleshooting
-
-- **"Working tree is not clean"**: Commit or stash all changes before releasing
-- **Notarization fails**: Check Apple ID credentials and app-specific password
-- **S3 upload fails**: Verify AWS credentials and bucket permissions
-- **Build fails**: Ensure Xcode 16+ and valid code signing certificates
+- Source and releases: https://github.com/salishdev/Hex
+- Product name is provisional. Default bundle ID is `com.salishdev.Hex`, with `.debug` for Debug.
+- Shared identity: `Config/Fork.xcconfig`; ignored local signing override: `Config/Local.xcconfig`.
+- `bun install --frozen-lockfile`, then `bun run dev` for a signed Debug build.
+- `bun run test:core` runs the HexCore suite. Keep `IssueReportingTestSupport` linked to core tests; otherwise the runtime fallback can crash on newer Swift Testing versions.
+- `.github/workflows/ci.yml` runs core and app tests. It does not publish releases.
+- `TEAM_ID=... BUILD_NUMBER=... NOTARY_PROFILE=... bun run release --check` checks packaging prerequisites.
+- `bun run release` with those variables packages signed/notarized ZIP and DMG files locally. It requires a clean committed tree and does not process changesets, tag, push, or publish.
+- The release maintainer processes changesets before packaging. Agents create fragments only.
+- See [docs/release-process.md](docs/release-process.md) for credential setup and reviewed GitHub publication.

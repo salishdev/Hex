@@ -38,22 +38,10 @@ struct AboutView: View {
                 HStack {
                     Label("Hex is open source", systemImage: "apple.terminal.on.rectangle")
                     Spacer()
-                    Link("Visit our GitHub", destination: URL(string: "https://github.com/kitlangton/Hex/")!)
+                    Link("Visit our GitHub", destination: URL(string: "https://github.com/salishdev/Hex")!)
                 }
 
-                if RustBetaAnnouncement.isAvailable {
-                    HStack {
-                        Label("New Rust beta", systemImage: "hexagon")
-                        Spacer()
-                        Link("Try the beta", destination: RustBetaAnnouncement.downloadURL)
-                    }
-                }
-                
-                HStack {
-                    Label("Support the developer", systemImage: "heart")
-                    Spacer()
-                    Link("Become a Sponsor", destination: URL(string: "https://github.com/sponsors/kitlangton")!)
-                }
+
             }
         }
         .formStyle(.grouped)

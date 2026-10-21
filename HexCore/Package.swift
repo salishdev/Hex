@@ -11,6 +11,7 @@ let package = Package(
         .package(url: "https://github.com/Clipy/Sauce", branch: "master"),
         .package(url: "https://github.com/pointfreeco/swift-dependencies", from: "1.11.0"),
         .package(url: "https://github.com/apple/swift-log", from: "1.9.1"),
+        .package(url: "https://github.com/pointfreeco/xctest-dynamic-overlay", from: "1.8.0"),
     ],
     targets: [
 	    .target(
@@ -28,7 +29,11 @@ let package = Package(
 	    ),
         .testTarget(
             name: "HexCoreTests",
-            dependencies: ["HexCore"],
+            dependencies: [
+                "HexCore",
+                // Use the public Testing bridge instead of runtime layout assumptions.
+                .product(name: "IssueReportingTestSupport", package: "xctest-dynamic-overlay"),
+            ],
             path: "Tests/HexCoreTests",
             resources: [
                 .copy("Fixtures")

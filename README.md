@@ -1,53 +1,58 @@
-# Hex Has Moved
+# Hex — Salish fork
 
-Hex has moved to **[anomalyco/hex](https://github.com/anomalyco/hex)**. This Swift app is no longer maintained.
-Download the new app at **[hex.kitlangton.com](https://hex.kitlangton.com)**, and please file new issues on [anomalyco/hex](https://github.com/anomalyco/hex/issues).
-This repository preserves the original Swift app, its history, and its releases.
+An independently maintained fork of [Kit Langton’s original Swift Hex](https://github.com/kitlangton/Hex), an MIT-licensed macOS menu bar app for on-device voice-to-text. This fork is developed at [salishdev/Hex](https://github.com/salishdev/Hex). The product name is provisional.
 
-## Legacy Swift App
+Hold a hotkey to dictate and release to transcribe, or double-tap to lock recording and tap again to finish. Transcripts can be pasted into the active app. Speech recognition runs locally with Parakeet (FluidAudio) or Whisper (WhisperKit); initial model downloads require internet access.
 
-Press-and-hold a hotkey to transcribe your voice and paste the result wherever you're typing.
+Apple Silicon, macOS 14 or newer. Grant microphone, Accessibility, and Input Monitoring permissions when prompted. The fork has its own app identity and storage, so permissions and models must be configured separately from upstream Hex.
 
-**[Download the legacy Swift version](https://hex-updates.s3.us-east-1.amazonaws.com/hex-latest.dmg)**
+## Development
 
-> **Note:** Hex is currently only available for **Apple Silicon** Macs.
+Install full Xcode (26 or newer), select it with `xcode-select`, finish its first-launch setup, and install [Bun](https://bun.sh).
 
-Or download via homebrew:
 ```bash
-brew install --cask kitlangton-hex
+bun install --frozen-lockfile
+cp Config/Local.xcconfig.example Config/Local.xcconfig
+# Set HEX_DEVELOPMENT_TEAM in Config/Local.xcconfig to your Apple Developer team.
+open Hex.xcodeproj
 ```
 
-The Swift version supports [Parakeet TDT v3](https://github.com/FluidInference/FluidAudio)
-through [FluidAudio](https://github.com/FluidInference/FluidAudio) and
-[WhisperKit](https://github.com/argmaxinc/WhisperKit) for on-device transcription.
-It uses the [Swift Composable Architecture](https://github.com/pointfreeco/swift-composable-architecture).
+Run the Hex scheme in Xcode, or build from the terminal:
 
-## Instructions
+```bash
+bun run dev
+open 'build/DerivedData/Build/Products/Debug/Hex Debug.app'
+bun run test:core
+```
 
-Once you open Hex, you'll need to grant it microphone and accessibility permissions—so it can record your voice and paste the transcribed text into any application, respectively.
+Debug uses `com.salishdev.Hex.debug`; Release uses `com.salishdev.Hex`. Change the shared base identifier in `Config/Fork.xcconfig`. Local signing settings are ignored by git. Apple Development signing gives stable macOS permission grants during development.
 
-Once you've configured a global hotkey, there are **two recording modes**:
+App tests:
 
-1. **Press-and-hold** the hotkey to begin recording, say whatever you want, and then release the hotkey to start the transcription process. 
-2. **Double-tap** the hotkey to *lock recording*, say whatever you want, and then **tap** the hotkey once more to start the transcription process.
+```bash
+xcodebuild test -project Hex.xcodeproj -scheme Hex -configuration Debug \
+  -destination 'platform=macOS,arch=arm64' -derivedDataPath build/DerivedData
+```
 
-## Contributing
+CI runs core and app tests on pull requests and pushes to `main`. Swift package lockfiles are checked in; review dependency updates deliberately.
 
-For the Rust beta, new features, and current development, use
-**[anomalyco/hex](https://github.com/anomalyco/hex)**.
-Issues specific to the legacy Swift app can still be reported
-[here](https://github.com/kitlangton/Hex/issues). Please discuss substantial legacy
-changes before opening a pull request.
+## Distribution
 
-### Changelog workflow
+Signed, notarized ZIP and DMG downloads will be distributed through this fork’s GitHub Releases. See [the release guide](docs/release-process.md) for signing setup, packaging, and publication. Until the first fork release, build from source.
 
-- **For AI agents:** Run `bun run changeset:add-ai <type> "summary"` (e.g., `bun run changeset:add-ai patch "Fix clipboard timing"`) to create a changeset non-interactively.
-- **For humans:** Run `bunx changeset` when your PR needs release notes. Pick `patch`, `minor`, or `major` and write a short summary—this creates a `.changeset/*.md` fragment.
-- Check what will ship with `bunx changeset status --verbose`.
-- `npm run sync-changelog` (or `bun run tools/scripts/sync-changelog.ts`) mirrors the root `CHANGELOG.md` into `Hex/Resources/changelog.md` so the in-app sheet always matches GitHub releases.
-- The release tool consumes the pending fragments, bumps `package.json` + `Info.plist`, regenerates `CHANGELOG.md`, and feeds the resulting section to GitHub + Sparkle automatically. Releases fail fast if no changesets are queued, so you can't forget.
-- If you truly need to ship without pending Changesets (for example, re-running a failed publish), the release script will now prompt you to confirm and choose a `patch`/`minor`/`major` bump interactively before continuing.
+“Check for Updates” opens this fork’s releases page. Automatic Sparkle updates remain inactive until a fork-owned feed and signing key are configured.
+
+## Changes
+
+Every user-facing change needs a fragment:
+
+```bash
+bun run changeset:add-ai patch "Describe the user-facing change (#issue)"
+bun run changeset:status
+```
+
+Use `minor` for new features and `major` for breaking changes. The release maintainer processes fragments when preparing a version; agents create fragments only.
 
 ## License
 
-This project is licensed under the MIT License. See `LICENSE` for details.
+[MIT](LICENSE). Original copyright and attribution are preserved.
