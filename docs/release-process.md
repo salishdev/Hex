@@ -6,7 +6,7 @@ The product name remains Hex while branding is being decided. Before the first p
 
 ## One-time setup
 
-1. Install full Xcode, Bun, and GitHub CLI. Run `bun install --frozen-lockfile` at the repository root.
+1. Install full Xcode, Bun, and GitHub CLI. Run `bun install --frozen-lockfile` at the repository root. The packaging entry point generates `Hex.xcodeproj` with the pinned XcodeGen version automatically, including during `--check`; the generation script bootstraps the checksummed tool under `build/tools/` if needed. See [development setup](../README.md#development).
 2. Install your Developer ID Application certificate and private key in Keychain. Inspect available identities with `security find-identity -v -p codesigning`.
 3. This machine already has the working profile `apple-developer-store-credentials`. On another machine, configure credentials locally (choose a new profile name):
 
@@ -31,6 +31,8 @@ bun run sync-changelog
 Review `package.json`, `CHANGELOG.md`, and `Hex/Resources/changelog.md`, then commit the release changes. Agents should only create changeset fragments, not process them.
 
 The archive takes its marketing version from `package.json` and its build number from `BUILD_NUMBER`. It does not edit source metadata. Choose an unused integer greater than the last shipped build; upstream ended at 92. Never reuse a build number for a different artifact.
+
+Project settings belong in `project.yml` or the shared `.xcconfig` inputs. Generated project files are ignored and generation leaves the committed Swift package lockfile unchanged, so packaging can retain its clean-checkout requirement. Commit the specification and both app/core lockfiles when deliberately updating dependencies.
 
 ## Package
 

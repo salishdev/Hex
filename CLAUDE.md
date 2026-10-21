@@ -19,6 +19,7 @@ cd HexCore && swift test
 xcodebuild test -scheme Hex
 
 # Open in Xcode (recommended for development)
+bun run project:generate
 open Hex.xcodeproj
 ```
 
@@ -145,6 +146,8 @@ FluidAudio models reside under `Application Support/FluidAudio/Models`.
 - Source and releases: https://github.com/salishdev/Hex
 - Product name is provisional. Default bundle ID is `com.salishdev.Hex`, with `.debug` for Debug.
 - Shared identity: `Config/Fork.xcconfig`; ignored local signing override: `Config/Local.xcconfig`.
+- Project source of truth: `project.yml` and shared `.xcconfig` inputs. Do not edit generated Xcode project settings or schemes. `bun run project:generate` uses `.xcodegen-version` (checksummed automatic install under ignored `build/tools/` if needed). When upgrading XcodeGen, update the pin, the script checksum, and the specification minimum together.
+- Dev builds, CI, and release packaging generate automatically. Generate before opening Xcode or invoking raw `xcodebuild`. Generated project files are ignored, but the app lockfile inside `Hex.xcodeproj` stays tracked; never delete the whole directory. Preserve both app/core lockfiles and avoid dependency upgrades during unrelated work.
 - `bun install --frozen-lockfile`, then `bun run dev` for a signed Debug build.
 - `bun run test:core` runs the HexCore suite. Keep `IssueReportingTestSupport` linked to core tests; otherwise the runtime fallback can crash on newer Swift Testing versions.
 - `.github/workflows/ci.yml` runs core and app tests. It does not publish releases.

@@ -14,6 +14,7 @@ Install full Xcode (26 or newer), select it with `xcode-select`, finish its firs
 bun install --frozen-lockfile
 cp Config/Local.xcconfig.example Config/Local.xcconfig
 # Set HEX_DEVELOPMENT_TEAM in Config/Local.xcconfig to your Apple Developer team.
+bun run project:generate
 open Hex.xcodeproj
 ```
 
@@ -27,11 +28,19 @@ bun run test:core
 
 Debug uses `com.salishdev.Hex.debug`; Release uses `com.salishdev.Hex`. Change the shared base identifier in `Config/Fork.xcconfig`. Local signing settings are ignored by git. Apple Development signing gives stable macOS permission grants during development.
 
+`project.yml` and the shared `Config/*.xcconfig` files are the project source of truth. Edit those inputs instead of changing generated project settings in Xcode. `bun run project:generate` uses the exact XcodeGen version in `.xcodegen-version` (currently 2.45.4). If that version is not installed, it downloads the official release, checks its SHA-256, and installs it locally under ignored `build/tools/`. No global installation is required. To use an existing binary explicitly, set `XCODEGEN_BIN`; its version must match. When updating the pin, also update the release checksum in `scripts/generate-project.sh` and the minimum version in `project.yml`.
+
+Development builds, CI, and release packaging generate the project automatically. Generate before opening Xcode directly or running a raw `xcodebuild` command. The generated project and scheme are ignored; the app's `Hex.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved` remains committed and is preserved during generation. Do not delete the entire `.xcodeproj` directory when cleaning build outputs.
+
+When first switching from the hand-maintained project, clean existing DerivedData if app tests report unresolved package symbols. A fresh DerivedData directory avoids stale package linkage from the old project.
+
 App tests:
 
 ```bash
+bun run project:generate
 xcodebuild test -project Hex.xcodeproj -scheme Hex -configuration Debug \
-  -destination 'platform=macOS,arch=arm64' -derivedDataPath build/DerivedData
+  -destination 'platform=macOS,arch=arm64' -derivedDataPath build/DerivedData \
+  -onlyUsePackageVersionsFromResolvedFile
 ```
 
 CI runs core and app tests on pull requests and pushes to `main`. Swift package lockfiles are checked in; review dependency updates deliberately.

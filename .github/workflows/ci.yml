@@ -16,6 +16,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Xcode version
         run: xcodebuild -version
+      - name: Generate Xcode project
+        run: bash scripts/generate-project.sh
       - name: HexCore tests
         working-directory: HexCore
         run: swift test

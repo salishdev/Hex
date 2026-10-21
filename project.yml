@@ -1,0 +1,285 @@
+# Source of truth for Hex.xcodeproj. Generate with bun run project:generate.
+# Preserve baseline settings explicitly; XcodeGen presets are disabled.
+name: Hex
+options:
+  minimumXcodeGenVersion: "2.45.4"
+  xcodeVersion: "26.2"
+  settingPresets: none
+  defaultConfig: Release
+  developmentLanguage: en
+configs:
+  Debug: debug
+  Release: release
+configFiles:
+  Debug: Config/Fork.xcconfig
+  Release: Config/Fork.xcconfig
+settings:
+  base:
+    ALWAYS_SEARCH_USER_PATHS: "NO"
+    ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS: "YES"
+    CLANG_ANALYZER_NONNULL: "YES"
+    CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION: YES_AGGRESSIVE
+    CLANG_CXX_LANGUAGE_STANDARD: "gnu++20"
+    CLANG_ENABLE_MODULES: "YES"
+    CLANG_ENABLE_OBJC_ARC: "YES"
+    CLANG_ENABLE_OBJC_WEAK: "YES"
+    CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING: "YES"
+    CLANG_WARN_BOOL_CONVERSION: "YES"
+    CLANG_WARN_COMMA: "YES"
+    CLANG_WARN_CONSTANT_CONVERSION: "YES"
+    CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS: "YES"
+    CLANG_WARN_DIRECT_OBJC_ISA_USAGE: YES_ERROR
+    CLANG_WARN_DOCUMENTATION_COMMENTS: "YES"
+    CLANG_WARN_EMPTY_BODY: "YES"
+    CLANG_WARN_ENUM_CONVERSION: "YES"
+    CLANG_WARN_INFINITE_RECURSION: "YES"
+    CLANG_WARN_INT_CONVERSION: "YES"
+    CLANG_WARN_NON_LITERAL_NULL_CONVERSION: "YES"
+    CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF: "YES"
+    CLANG_WARN_OBJC_LITERAL_CONVERSION: "YES"
+    CLANG_WARN_OBJC_ROOT_CLASS: YES_ERROR
+    CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER: "YES"
+    CLANG_WARN_RANGE_LOOP_ANALYSIS: "YES"
+    CLANG_WARN_STRICT_PROTOTYPES: "YES"
+    CLANG_WARN_SUSPICIOUS_MOVE: "YES"
+    CLANG_WARN_UNGUARDED_AVAILABILITY: YES_AGGRESSIVE
+    CLANG_WARN_UNREACHABLE_CODE: "YES"
+    CLANG_WARN__DUPLICATE_METHOD_MATCH: "YES"
+    COPY_PHASE_STRIP: "NO"
+    DEAD_CODE_STRIPPING: "YES"
+    DEVELOPMENT_TEAM: "$(HEX_DEVELOPMENT_TEAM)"
+    ENABLE_STRICT_OBJC_MSGSEND: "YES"
+    ENABLE_USER_SCRIPT_SANDBOXING: "YES"
+    GCC_C_LANGUAGE_STANDARD: gnu17
+    GCC_NO_COMMON_BLOCKS: "YES"
+    GCC_WARN_64_TO_32_BIT_CONVERSION: "YES"
+    GCC_WARN_ABOUT_RETURN_TYPE: YES_ERROR
+    GCC_WARN_UNDECLARED_SELECTOR: "YES"
+    GCC_WARN_UNINITIALIZED_AUTOS: YES_AGGRESSIVE
+    GCC_WARN_UNUSED_FUNCTION: "YES"
+    GCC_WARN_UNUSED_VARIABLE: "YES"
+    LOCALIZATION_PREFERS_STRING_CATALOGS: "YES"
+    MACOSX_DEPLOYMENT_TARGET: "14.0"
+    MTL_FAST_MATH: "YES"
+    SDKROOT: macosx
+    STRING_CATALOG_GENERATE_SYMBOLS: "YES"
+  configs:
+    Debug:
+      DEBUG_INFORMATION_FORMAT: dwarf
+      ENABLE_TESTABILITY: "YES"
+      GCC_DYNAMIC_NO_PIC: "NO"
+      GCC_OPTIMIZATION_LEVEL: "0"
+      GCC_PREPROCESSOR_DEFINITIONS:
+        - "DEBUG=1"
+        - "$(inherited)"
+      MTL_ENABLE_DEBUG_INFO: INCLUDE_SOURCE
+      ONLY_ACTIVE_ARCH: "YES"
+      SWIFT_ACTIVE_COMPILATION_CONDITIONS: "DEBUG $(inherited)"
+      SWIFT_OPTIMIZATION_LEVEL: -Onone
+    Release:
+      DEBUG_INFORMATION_FORMAT: dwarf-with-dsym
+      ENABLE_NS_ASSERTIONS: "NO"
+      MTL_ENABLE_DEBUG_INFO: "NO"
+      SWIFT_COMPILATION_MODE: wholemodule
+packages:
+  FluidAudio:
+    url: "https://github.com/FluidInference/FluidAudio"
+    exactVersion: "0.15.5"
+  HexCore:
+    path: HexCore
+  Inject:
+    url: "https://github.com/krzysztofzablocki/Inject"
+    from: "1.6.0"
+  Pow:
+    url: "https://github.com/EmergeTools/Pow"
+    revision: "1b4b1dda28c50b95f0872927ee2226fe8b58950e"
+  Sauce:
+    url: "https://github.com/Clipy/Sauce"
+    branch: master
+  Sparkle:
+    url: "https://github.com/sparkle-project/Sparkle"
+    from: "2.9.4"
+  WhisperKit:
+    url: "https://github.com/argmaxinc/WhisperKit"
+    exactVersion: "0.15.0"
+  swift-case-paths:
+    url: "https://github.com/pointfreeco/swift-case-paths"
+    from: "1.8.0"
+  swift-composable-architecture:
+    url: "https://github.com/pointfreeco/swift-composable-architecture"
+    from: "1.26.0"
+  swift-dependencies:
+    url: "https://github.com/pointfreeco/swift-dependencies"
+    from: "1.14.1"
+  swift-identified-collections:
+    url: "https://github.com/pointfreeco/swift-identified-collections"
+    from: "1.1.1"
+  swift-markdown-ui:
+    url: "https://github.com/gonzalezreal/swift-markdown-ui"
+    from: "2.4.1"
+  swift-sharing:
+    url: "https://github.com/pointfreeco/swift-sharing"
+    from: "2.9.1"
+  # Public Swift Testing bridge, also required by HexCore tests.
+  xctest-dynamic-overlay:
+    url: "https://github.com/pointfreeco/xctest-dynamic-overlay"
+    from: "1.8.0"
+targets:
+  Hex:
+    type: application
+    platform: macOS
+    sources:
+      - path: Hex
+        type: syncedFolder
+        excludes:
+          - Info.plist
+      - path: Localizable.xcstrings
+        buildPhase: resources
+    settings:
+      base:
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        AUTOMATION_APPLE_EVENTS: "YES"
+        CODE_SIGN_ENTITLEMENTS: Hex/Hex.entitlements
+        "CODE_SIGN_IDENTITY[sdk=macosx*]": "Apple Development"
+        CODE_SIGN_STYLE: Automatic
+        COMBINE_HIDPI_IMAGES: "YES"
+        CURRENT_PROJECT_VERSION: "92"
+        DEAD_CODE_STRIPPING: "YES"
+        DEVELOPMENT_ASSET_PATHS: "\"Hex/Preview Content\""
+        DEVELOPMENT_TEAM: "$(HEX_DEVELOPMENT_TEAM)"
+        ENABLE_APP_SANDBOX: "YES"
+        ENABLE_HARDENED_RUNTIME: "YES"
+        ENABLE_OUTGOING_NETWORK_CONNECTIONS: "YES"
+        ENABLE_PREVIEWS: "YES"
+        ENABLE_RESOURCE_ACCESS_AUDIO_INPUT: "YES"
+        ENABLE_RESOURCE_ACCESS_CALENDARS: "NO"
+        ENABLE_RESOURCE_ACCESS_CAMERA: "NO"
+        ENABLE_RESOURCE_ACCESS_CONTACTS: "NO"
+        ENABLE_RESOURCE_ACCESS_LOCATION: "NO"
+        ENABLE_RESOURCE_ACCESS_PHOTO_LIBRARY: "NO"
+        ENABLE_USER_SELECTED_FILES: readwrite
+        GENERATE_INFOPLIST_FILE: "YES"
+        INFOPLIST_FILE: Hex/Info.plist
+        INFOPLIST_KEY_NSAppleEventsUsageDescription: "Hex needs to control keyboard events to simulate paste operations."
+        INFOPLIST_KEY_NSHumanReadableCopyright: ""
+        INFOPLIST_KEY_NSMicrophoneUsageDescription: "Hex needs microphone access in order to transcribe your voice."
+        LD_RUNPATH_SEARCH_PATHS:
+          - "$(inherited)"
+          - "@executable_path/../Frameworks"
+        MACOSX_DEPLOYMENT_TARGET: "14.0"
+        MARKETING_VERSION: "0.8.5"
+        RUNTIME_EXCEPTION_ALLOW_DYLD_ENVIRONMENT_VARIABLES: "NO"
+        RUNTIME_EXCEPTION_ALLOW_JIT: "NO"
+        RUNTIME_EXCEPTION_ALLOW_UNSIGNED_EXECUTABLE_MEMORY: "NO"
+        RUNTIME_EXCEPTION_DEBUGGING_TOOL: "NO"
+        RUNTIME_EXCEPTION_DISABLE_EXECUTABLE_PAGE_PROTECTION: "NO"
+        RUNTIME_EXCEPTION_DISABLE_LIBRARY_VALIDATION: "YES"
+        SWIFT_EMIT_LOC_STRINGS: "YES"
+        SWIFT_VERSION: "5.0"
+      configs:
+        Debug:
+          EMIT_FRONTEND_COMMAND_LINES: "YES"
+          ENABLE_USER_SCRIPT_SANDBOXING: "YES"
+          OTHER_LDFLAGS:
+            - -Xlinker
+            - -interposable
+          PRODUCT_BUNDLE_IDENTIFIER: "$(HEX_BUNDLE_ID).debug"
+          PRODUCT_MODULE_NAME: Hex
+          PRODUCT_NAME: "Hex Debug"
+        Release:
+          EMIT_FRONTEND_COMMAND_LINES: "NO"
+          PRODUCT_BUNDLE_IDENTIFIER: "$(HEX_BUNDLE_ID)"
+          PRODUCT_NAME: "$(TARGET_NAME)"
+    dependencies:
+      - package: swift-composable-architecture
+        product: ComposableArchitecture
+      - package: Sauce
+        product: Sauce
+      - package: swift-dependencies
+        product: Dependencies
+      - package: swift-dependencies
+        product: DependenciesMacros
+      - package: Pow
+        product: Pow
+      - package: Sparkle
+        product: Sparkle
+      - package: swift-markdown-ui
+        product: MarkdownUI
+      - package: Inject
+        product: Inject
+      - package: WhisperKit
+        product: WhisperKit
+      - package: HexCore
+        product: HexCore
+      - package: FluidAudio
+        product: FluidAudio
+      - package: swift-sharing
+        product: Sharing
+      - package: swift-case-paths
+        product: CasePaths
+      - package: swift-identified-collections
+        product: IdentifiedCollections
+  HexTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: HexTests
+        type: syncedFolder
+    settings:
+      base:
+        BUNDLE_LOADER: "$(TEST_HOST)"
+        CODE_SIGN_STYLE: Automatic
+        CURRENT_PROJECT_VERSION: "92"
+        DEAD_CODE_STRIPPING: "YES"
+        GENERATE_INFOPLIST_FILE: "YES"
+        MARKETING_VERSION: "0.8.5"
+        PRODUCT_BUNDLE_IDENTIFIER: "$(HEX_BUNDLE_ID).tests"
+        PRODUCT_NAME: "$(TARGET_NAME)"
+        SWIFT_EMIT_LOC_STRINGS: "NO"
+        SWIFT_VERSION: "5.0"
+        # Also emits TestTargetID, preserving the baseline host association.
+        TEST_TARGET_NAME: Hex
+      configs:
+        Debug:
+          TEST_HOST: "$(BUILT_PRODUCTS_DIR)/Hex Debug.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Hex Debug"
+        Release:
+          TEST_HOST: "$(BUILT_PRODUCTS_DIR)/Hex.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Hex"
+    dependencies:
+      - target: Hex
+      - package: xctest-dynamic-overlay
+        product: IssueReportingTestSupport
+      - package: swift-composable-architecture
+        product: ComposableArchitecture
+      - package: HexCore
+        product: HexCore
+      - package: swift-sharing
+        product: Sharing
+      - package: swift-case-paths
+        product: CasePaths
+      - package: swift-dependencies
+        product: Dependencies
+      - package: swift-identified-collections
+        product: IdentifiedCollections
+schemes:
+  Hex:
+    build:
+      targets:
+        Hex: all
+    run:
+      config: Debug
+      environmentVariables:
+        INJECTION_PRESERVE_STATICS: "TRUE"
+        INJECTION_KEYPATHS: "TRUE"
+    test:
+      config: Debug
+      targets:
+        - name: HexTests
+          parallelizable: true
+    profile:
+      config: Release
+    analyze:
+      config: Debug
+    archive:
+      config: Release
+      revealArchiveInOrganizer: true

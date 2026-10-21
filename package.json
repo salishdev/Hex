@@ -14,7 +14,8 @@
     "changeset:version": "changeset version",
     "sync-changelog": "bun run tools/scripts/sync-changelog.ts",
     "dev": "bash scripts/dev.sh",
-    "test:core": "cd HexCore && swift test"
+    "test:core": "cd HexCore && swift test",
+    "project:generate": "bash scripts/generate-project.sh"
   },
   "devDependencies": {
     "@changesets/cli": "^2.31.0"

@@ -4,6 +4,15 @@ updates/
 .DS_Store
 
 # Xcode
+# XcodeGen outputs; keep the app dependency lockfile in source control.
+Hex.xcodeproj/*
+!Hex.xcodeproj/project.xcworkspace/
+Hex.xcodeproj/project.xcworkspace/*
+!Hex.xcodeproj/project.xcworkspace/xcshareddata/
+Hex.xcodeproj/project.xcworkspace/xcshareddata/*
+!Hex.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/
+Hex.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/*
+!Hex.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved
 *.xcodeproj/xcuserdata/
 *.xcworkspace/xcuserdata/
 *.xcuserstate

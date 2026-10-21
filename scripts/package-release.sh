@@ -17,6 +17,7 @@ fi
 version=$(bun -e 'console.log(require("./package.json").version)')
 [[ $version =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo 'package.json must contain a stable x.y.z version.' >&2; exit 1; }
 xcodebuild -version
+bash scripts/generate-project.sh
 # Check that a distribution certificate exists for the selected team.
 identities=$(security find-identity -v -p codesigning)
 default_identity=$(echo "$identities" | /usr/bin/awk -v team="$TEAM_ID" 'index($0, "Developer ID Application:") && index($0, "(" team ")") { print $2; exit }')
