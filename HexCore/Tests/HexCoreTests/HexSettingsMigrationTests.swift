@@ -36,6 +36,15 @@ final class HexSettingsMigrationTests: XCTestCase {
 		XCTAssertEqual(decoded, settings)
 	}
 
+	func testModelDefaultAndSavedSelectionMigration() throws {
+		XCTAssertEqual(HexSettings().selectedModel, ParakeetModel.englishV2.identifier)
+		let missingModel = try JSONDecoder().decode(HexSettings.self, from: Data("{}".utf8))
+		XCTAssertEqual(missingModel.selectedModel, ParakeetModel.englishV2.identifier)
+		let savedModel = Data("{\"selectedModel\":\"parakeet-tdt-0.6b-v3-coreml\"}".utf8)
+		let decoded = try JSONDecoder().decode(HexSettings.self, from: savedModel)
+		XCTAssertEqual(decoded.selectedModel, ParakeetModel.multilingualV3.identifier)
+	}
+
 	func testNewSettingsEnableSuperFastModeByDefault() {
 		XCTAssertTrue(HexSettings().superFastModeEnabled)
 	}

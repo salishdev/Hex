@@ -28,6 +28,18 @@ bun run test:core
 
 Debug uses `com.salishdev.Hex.debug`; Release uses `com.salishdev.Hex`. Change the shared base identifier in `Config/Fork.xcconfig`. Local signing settings are ignored by git. Apple Development signing gives stable macOS permission grants during development.
 
+To dogfood an optimized Release build from your working tree:
+
+```bash
+bun run install:local
+# Install without launching:
+bun run install:local --no-open
+```
+
+This builds incrementally, quits the installed Hex, replaces `/Applications/Hex.app`, and launches it. It uses Apple Development signing from your local configuration, without archiving or notarization. Build output is saved to `build/install-local.log`; cached build products live in `build/LocalReleaseDerivedData`. Run as your normal user with write access to `/Applications`.
+
+Keep the bundle ID, signing team, and certificate type stable between installs so macOS can recognize permission grants. Models, preferences, and history remain in the app's existing storage. Switching from upstream Hex or Hex Debug uses a different identity: grant permissions and configure models once for the Release app. New settings default to Parakeet v2 for English; v3 remains available for multilingual transcription. Existing model selections are preserved. Switching later to Developer ID signing may also prompt for permissions again; see [Apple's code signing requirements](https://developer.apple.com/documentation/technotes/tn3127-inside-code-signing-requirements).
+
 `project.yml` and the shared `Config/*.xcconfig` files are the project source of truth. Edit those inputs instead of changing generated project settings in Xcode. `bun run project:generate` uses the exact XcodeGen version in `.xcodegen-version` (currently 2.45.4). If that version is not installed, it downloads the official release, checks its SHA-256, and installs it locally under ignored `build/tools/`. No global installation is required. To use an existing binary explicitly, set `XCODEGEN_BIN`; its version must match. When updating the pin, also update the release checksum in `scripts/generate-project.sh` and the minimum version in `project.yml`.
 
 Development builds, CI, and release packaging generate the project automatically. Generate before opening Xcode directly or running a raw `xcodebuild` command. The generated project and scheme are ignored; the app's `Hex.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved` remains committed and is preserved during generation. Do not delete the entire `.xcodeproj` directory when cleaning build outputs.

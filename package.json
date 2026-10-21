@@ -14,6 +14,7 @@
     "changeset:version": "changeset version",
     "sync-changelog": "bun run tools/scripts/sync-changelog.ts",
     "dev": "bash scripts/dev.sh",
+    "install:local": "bash scripts/install-local.sh",
     "test:core": "cd HexCore && swift test",
     "project:generate": "bash scripts/generate-project.sh"
   },
