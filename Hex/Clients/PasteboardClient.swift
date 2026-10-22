@@ -18,6 +18,7 @@ private let pasteboardLogger = HexLog.pasteboard
 @DependencyClient
 struct PasteboardClient {
     var paste: @Sendable (String) async -> Void
+    var pasteGuarded: @Sendable (String, String?) async -> Bool = { _, _ in false }
     var copy: @Sendable (String) async -> Void
     var sendKeyboardCommand: @Sendable (KeyboardCommand) async -> Void
 }
@@ -28,6 +29,9 @@ extension PasteboardClient: DependencyKey {
         return .init(
             paste: { text in
                 await live.paste(text: text)
+            },
+            pasteGuarded: { text, destination in
+                await live.pasteGuarded(text: text, destination: destination)
             },
             copy: { text in
                 await live.copy(text: text)
@@ -81,9 +85,20 @@ struct PasteboardClientLive {
     }
 
     @MainActor
+    func pasteGuarded(text: String, destination: String?) async -> Bool {
+        let permitted: @MainActor () -> Bool = { !Task.isCancelled && NSWorkspace.shared.frontmostApplication?.bundleIdentifier == destination }
+        guard permitted() else { return false }
+        if hexSettings.useClipboardPaste { return await pasteWithClipboard(text, permitted: permitted) }
+        guard permitted() else { return false }
+        simulateTypingWithAppleScript(text)
+        return true
+    }
+
+    @MainActor
     func paste(text: String) async {
+        guard !Task.isCancelled else { return }
         if hexSettings.useClipboardPaste {
-            await pasteWithClipboard(text)
+            _ = await pasteWithClipboard(text)
         } else {
             simulateTypingWithAppleScript(text)
         }
@@ -201,12 +216,14 @@ struct PasteboardClientLive {
     }
 
     @MainActor
-    func pasteWithClipboard(_ text: String) async {
+    func pasteWithClipboard(_ text: String, permitted: @MainActor () -> Bool = { !Task.isCancelled }) async -> Bool {
+        guard permitted() else { return false }
         let pasteboard = NSPasteboard.general
         let snapshot = PasteboardSnapshot(pasteboard: pasteboard)
         let targetChangeCount = writeAndTrackChangeCount(pasteboard: pasteboard, text: text)
         _ = await waitForPasteboardCommit(targetChangeCount: targetChangeCount)
-        let pasteSucceeded = await performPaste(text)
+        guard permitted() else { return false }
+        let pasteSucceeded = await performPaste(text, permitted: permitted)
         
         // Only restore original pasteboard contents if:
         // 1. Copying to clipboard is disabled AND
@@ -231,6 +248,7 @@ struct PasteboardClientLive {
             // TODO: Could add a notification here to inform user
             // that text is available in clipboard
         }
+        return pasteSucceeded
     }
 
     @MainActor
@@ -275,9 +293,10 @@ struct PasteboardClientLive {
     }
 
     @MainActor
-    private func performPaste(_ text: String) async -> Bool {
+    private func performPaste(_ text: String, permitted: @MainActor () -> Bool) async -> Bool {
         for strategy in PasteStrategy.allCases {
-            if await attemptPaste(text, using: strategy) {
+            guard permitted() else { return false }
+            if await attemptPaste(text, using: strategy, permitted: permitted) {
                 return true
             }
         }
@@ -285,10 +304,10 @@ struct PasteboardClientLive {
     }
 
     @MainActor
-    private func attemptPaste(_ text: String, using strategy: PasteStrategy) async -> Bool {
+    private func attemptPaste(_ text: String, using strategy: PasteStrategy, permitted: @MainActor () -> Bool) async -> Bool {
         switch strategy {
         case .cmdV:
-            return await postCmdV(delayMs: 0)
+            return await postCmdV(delayMs: 0, permitted: permitted)
         case .menuItem:
             return PasteboardClientLive.pasteToFrontmostApp()
         case .accessibility:
@@ -299,9 +318,10 @@ struct PasteboardClientLive {
     // MARK: - Helpers
 
     @MainActor
-    private func postCmdV(delayMs: Int) async -> Bool {
+    private func postCmdV(delayMs: Int, permitted: @MainActor () -> Bool) async -> Bool {
         // Optional tiny wait before keystrokes
-        try? await wait(milliseconds: delayMs)
+        do { try await wait(milliseconds: delayMs) } catch { return false }
+        guard permitted() else { return false }
         let source = CGEventSource(stateID: .combinedSessionState)
         let vKey = vKeyCode()
         let cmdKey: CGKeyCode = 55

@@ -8,6 +8,14 @@ public struct Transcript: Codable, Equatable, Identifiable, Sendable {
     public var duration: TimeInterval
     public var sourceAppBundleID: String?
     public var sourceAppName: String?
+    public var originalText: String?
+    public var processorInput: String?
+    public var modeID: String?
+    public var modeName: String?
+    public var processingOutcome: String?
+    public var processingRequest: TextProcessorRequest?
+    public var finalFormatting: FinalFormatting?
+    public var isUsableOutput: Bool { processingOutcome != "failed" && !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
     
     public init(
         id: UUID = UUID(),

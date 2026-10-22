@@ -89,6 +89,16 @@ final class StoragePathsTests: XCTestCase {
         XCTAssertEqual(try Data(contentsOf: p.models.appendingPathComponent("missing.bin")), Data([3]))
     }
 
+    func testEmptyLegacyHistoryMigratesWithoutReplacingOriginal() throws {
+        let p = paths()
+        let source = support(p).appendingPathComponent("transcription_history.json")
+        try write(Data(), source)
+        try p.migrate()
+        XCTAssertTrue(try Data(contentsOf: source).isEmpty)
+        XCTAssertEqual(try JSONDecoder().decode(TranscriptionHistory.self, from: Data(contentsOf: p.history)), TranscriptionHistory())
+        XCTAssertTrue(fm.fileExists(atPath: p.data.appendingPathComponent(".unsandbox-migration-v1").path))
+    }
+
     func testInterruptedMigrationRetriesWithoutOverwritingPublishedSettings() throws {
         let p = paths()
         try write(Data("{}".utf8), support(p).appendingPathComponent("hex_settings.json"))

@@ -28,6 +28,7 @@ public struct HexSettings: Codable, Equatable, Sendable {
 	public var hotkey: HotKey
 	public var openOnLogin: Bool
 	public var showDockIcon: Bool
+	public var selectedModeID: String = "dictation"
 	public var selectedModel: String
 	public var useClipboardPaste: Bool
 	public var preventSystemSleep: Bool
@@ -142,6 +143,7 @@ private enum HexSettingKey: String, CodingKey, CaseIterable {
 	case hotkey
 	case openOnLogin
 	case showDockIcon
+	case selectedModeID
 	case selectedModel
 	case useClipboardPaste
 	case preventSystemSleep
@@ -230,6 +232,7 @@ private enum HexSettingsSchema {
 		SettingsField(.hotkey, keyPath: \.hotkey, default: defaults.hotkey).eraseToAny(),
 		SettingsField(.openOnLogin, keyPath: \.openOnLogin, default: defaults.openOnLogin).eraseToAny(),
 		SettingsField(.showDockIcon, keyPath: \.showDockIcon, default: defaults.showDockIcon).eraseToAny(),
+		SettingsField(.selectedModeID, keyPath: \.selectedModeID, default: defaults.selectedModeID).eraseToAny(),
 		SettingsField(.selectedModel, keyPath: \.selectedModel, default: defaults.selectedModel).eraseToAny(),
 		SettingsField(.useClipboardPaste, keyPath: \.useClipboardPaste, default: defaults.useClipboardPaste).eraseToAny(),
 		SettingsField(.preventSystemSleep, keyPath: \.preventSystemSleep, default: defaults.preventSystemSleep).eraseToAny(),

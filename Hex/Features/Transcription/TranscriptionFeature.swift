@@ -15,10 +15,40 @@ import WhisperKit
 
 private let transcriptionFeatureLogger = HexLog.transcription
 
+struct RecordingSnapshot: Equatable, Sendable {
+  var id: UUID
+  var mode: ModeDocument
+  var processor: ProcessorConfiguration?
+  var settings: HexSettings
+  var scratchpad: Bool
+}
+
+/// The original temporary recording has one owner, including while effects are cancelled.
+final class RecordingArtifact: @unchecked Sendable, Equatable {
+  let url: URL
+  let temporary: Bool
+  init(_ url: URL, temporary: Bool = true) { self.url = url; self.temporary = temporary }
+  deinit { if temporary { FileManager.default.removeItemIfExists(at: url) } }
+  static func == (lhs: RecordingArtifact, rhs: RecordingArtifact) -> Bool { lhs === rhs }
+}
+
+struct RecoveryResult: Equatable {
+  var transcript: Transcript
+  var artifact: RecordingArtifact
+  var persisted = false
+  var published = false
+  var failure: String?
+  var diagnostics = ""
+}
+
 @Reducer
 struct TranscriptionFeature {
   @ObservableState
   struct State: Equatable {
+    var session: RecordingSnapshot?
+    var phase = "idle"
+    var recovery: RecoveryResult?
+    @Shared(.modeLibrary) var modeLibrary: ModeLibrary
     var isRecording: Bool = false
     var isTranscribing: Bool = false
     var isPrewarming: Bool = false
@@ -34,7 +64,16 @@ struct TranscriptionFeature {
   }
 
   enum Action {
+    case historyDisabled
     case task
+    case sessionTranscript(UUID, String, RecordingArtifact, TimeInterval)
+    case sessionError(UUID, String)
+    case processed(UUID, String?, TextProcessorFailure?)
+    case persisted(UUID, Transcript, Bool)
+    case deliver(UUID, Bool)
+    case delivered(UUID, Bool)
+    case retryHistorical(Transcript)
+    case retry, copyOriginal, pasteOriginal, copyResult, pasteResult, dismissResult
     case audioLevelUpdated(Meter)
 
     // Hotkey actions
@@ -49,10 +88,6 @@ struct TranscriptionFeature {
     case cancel   // Explicit cancellation with sound
     case discard  // Silent discard (too short/accidental)
 
-    // Transcription result flow
-    case transcriptionResult(String, URL, TimeInterval)
-    case transcriptionError(Error, URL?)
-
     // Model availability
     case modelMissing
   }
@@ -64,6 +99,8 @@ struct TranscriptionFeature {
     case transcription
   }
 
+  @Dependency(\.uuid) var uuid
+  @Dependency(\.textProcessor) var textProcessor
   @Dependency(\.transcription) var transcription
   @Dependency(\.recording) var recording
   @Dependency(\.pasteboard) var pasteboard
@@ -77,6 +114,16 @@ struct TranscriptionFeature {
     Reduce { state, action in
       switch action {
       // MARK: - Lifecycle / Setup
+
+      case .historyDisabled:
+        state.session?.settings.saveTranscriptionHistory = false
+        if var recovery = state.recovery {
+          let cleanup = cleanupUnpublished(recovery)
+          recovery.persisted = false; recovery.published = false; recovery.transcript.audioPath = recovery.artifact.url
+          state.recovery = recovery
+          return cleanup
+        }
+        return .none
 
       case .task:
         // Starts two concurrent effects:
@@ -117,11 +164,119 @@ struct TranscriptionFeature {
 
       // MARK: - Transcription Results
 
-      case let .transcriptionResult(result, audioURL, duration):
-        return handleTranscriptionResult(&state, result: result, audioURL: audioURL, duration: duration)
+      case let .sessionTranscript(id, text, artifact, duration):
+        guard state.session?.id == id else { return .none }
+        return acceptTranscript(&state, result: text, artifact: artifact, duration: duration)
 
-      case let .transcriptionError(error, audioURL):
-        return handleTranscriptionError(&state, error: error, audioURL: audioURL)
+      case let .sessionError(id, message):
+        guard state.session?.id == id else { return .none }
+        state.error = message; state.isTranscribing = false; state.isPrewarming = false
+        if state.recovery != nil { state.recovery?.failure = message; state.phase = "failed" }
+        else { state.phase = "idle"; state.session = nil }
+        return .none
+
+      case let .processed(id, output, failure):
+        guard let snapshot = state.session, snapshot.id == id, var recovery = state.recovery else { return .none }
+        recovery.failure = failure?.reason; recovery.diagnostics = failure?.diagnostics ?? ""
+        if let output {
+          recovery.transcript.text = snapshot.scratchpad ? output : TranscriptFormattingApplier.apply(output,
+            lowercase: snapshot.mode.mode.formatting.lowercase ?? snapshot.settings.lowercaseTranscripts,
+            removePunctuation: snapshot.mode.mode.formatting.removePunctuation ?? snapshot.settings.removePunctuation)
+          recovery.transcript.processingOutcome = "succeeded"
+        } else {
+          recovery.transcript.text = ""; recovery.transcript.processingOutcome = "failed"
+        }
+        if output != nil && snapshot.processor != nil && recovery.transcript.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+          recovery.failure = "Final formatting produced empty output"; recovery.transcript.processingOutcome = "failed"
+        }
+        if output != nil && recovery.transcript.text.isEmpty && snapshot.processor == nil {
+          state.recovery = nil; state.session = nil; state.phase = "idle"; state.isTranscribing = false
+          return .none
+        }
+        state.recovery = recovery; state.phase = "saving"
+        if snapshot.settings.saveTranscriptionHistory && state.hexSettings.saveTranscriptionHistory && !recovery.persisted {
+          return .run { [recovery] send in
+            do {
+              var stored = try await transcriptPersistence.save(recovery.transcript.text, recovery.artifact.url, recovery.transcript.duration, recovery.transcript.sourceAppBundleID, recovery.transcript.sourceAppName)
+              stored.originalText = recovery.transcript.originalText; stored.processorInput = recovery.transcript.processorInput
+              stored.modeID = recovery.transcript.modeID; stored.modeName = recovery.transcript.modeName
+              stored.processingOutcome = recovery.transcript.processingOutcome; stored.processingRequest = recovery.transcript.processingRequest
+              stored.finalFormatting = recovery.transcript.finalFormatting
+              if Task.isCancelled { try? await transcriptPersistence.deleteAudio(stored); return }
+              await send(.persisted(id, stored, true))
+            } catch { await send(.sessionError(id, "Could not save recording: " + error.localizedDescription)) }
+          }.cancellable(id: CancelID.transcription)
+        }
+        return .send(.persisted(id, recovery.transcript, false))
+
+      case let .persisted(id, transcript, newlySaved):
+        guard state.session?.id == id, var recovery = state.recovery else {
+          return newlySaved ? .run { _ in try? await transcriptPersistence.deleteAudio(transcript) } : .none
+        }
+        var stored = transcript
+        let historyEnabled = state.hexSettings.saveTranscriptionHistory && state.session?.settings.saveTranscriptionHistory == true
+        let justSaved = newlySaved
+        if justSaved && !historyEnabled {
+          let audio = stored
+          Task { try? await transcriptPersistence.deleteAudio(audio) }
+          stored.audioPath = recovery.artifact.url
+        }
+        recovery.transcript = stored
+        recovery.persisted = historyEnabled && (justSaved || recovery.persisted)
+        state.recovery = recovery
+        if let failure = recovery.failure {
+          state.error = failure; state.isTranscribing = false; state.isPrewarming = false; state.phase = "failed"
+          return publishHistory(&state)
+        }
+        state.phase = "delivering"
+        return .send(.deliver(id, false))
+
+      case let .deliver(id, explicit):
+        guard state.session?.id == id, let recovery = state.recovery else { return .none }
+        return .run { send in
+          try Task.checkCancellation()
+          let allowed = await MainActor.run { explicit || NSWorkspace.shared.frontmostApplication?.bundleIdentifier == recovery.transcript.sourceAppBundleID }
+          guard allowed else { await send(.delivered(id, false)); return }
+          try Task.checkCancellation()
+          let pasted: Bool
+          if explicit { await pasteboard.paste(recovery.transcript.text); pasted = true }
+          else { pasted = await pasteboard.pasteGuarded(recovery.transcript.text, recovery.transcript.sourceAppBundleID) }
+          try Task.checkCancellation()
+          await send(.delivered(id, pasted))
+        }.cancellable(id: CancelID.transcription)
+
+      case let .delivered(id, pasted):
+        guard state.session?.id == id else { return .none }
+        state.isTranscribing = false; state.isPrewarming = false; state.phase = pasted ? "idle" : "ready"
+        let cleanup = publishHistory(&state)
+        if pasted { state.recovery = nil; state.session = nil }
+        return pasted ? .merge(cleanup, .run { _ in soundEffect.play(.pasteTranscript) }) : cleanup
+
+      case let .retryHistorical(transcript):
+        guard !state.isRecording && !state.isTranscribing, transcript.processingRequest != nil else { return .none }
+        state.recovery = .init(transcript: transcript, artifact: RecordingArtifact(transcript.audioPath, temporary: false), persisted: true, published: true)
+        return .send(.retry)
+
+      case .retry:
+        guard !state.isTranscribing, let recovery = state.recovery, var request = recovery.transcript.processingRequest else { return .none }
+        let id = uuid(); request.runID = id
+        let settings = state.session?.settings ?? state.hexSettings
+        state.session = .init(id: id, mode: .init(mode: .init(id: recovery.transcript.modeID ?? "dictation", name: recovery.transcript.modeName ?? "Dictation", formatting: recovery.transcript.finalFormatting ?? .init())), processor: request.processor, settings: settings, scratchpad: false)
+        state.isTranscribing = true; state.phase = "processing"; state.error = nil
+        return processingEffect(request)
+      case .copyOriginal, .copyResult:
+        guard let recovery = state.recovery else { return .none }
+        let text = action.isCopyOriginal ? recovery.transcript.originalText ?? recovery.transcript.text : recovery.transcript.text
+        return .run { _ in await pasteboard.copy(text) }
+      case .pasteOriginal:
+        guard let recovery = state.recovery else { return .none }
+        let text = recovery.transcript.originalText ?? recovery.transcript.text
+        return .run { _ in try Task.checkCancellation(); await pasteboard.paste(text) }.cancellable(id: CancelID.transcription)
+      case .pasteResult:
+        guard let id = state.session?.id else { return .none }
+        return .send(.deliver(id, true))
+      case .dismissResult:
+        return handleCancel(&state)
 
       case .modelMissing:
         return .none
@@ -130,7 +285,7 @@ struct TranscriptionFeature {
 
       case .cancel:
         // Only cancel if we're in the middle of recording, transcribing, or post-processing
-        guard state.isRecording || state.isTranscribing else {
+        guard state.isRecording || state.isTranscribing || state.recovery != nil else {
           return .none
         }
         return handleCancel(&state)
@@ -283,11 +438,25 @@ private extension TranscriptionFeature {
         .run { _ in soundEffect.play(.cancel) }
       )
     }
+    guard !state.isRecording else { return .none }
+    guard let document = state.modeLibrary.modes.first(where: { $0.id == state.hexSettings.selectedModeID }) else {
+      state.error = "The selected mode is unavailable. Choose a mode from the menu or repair its configuration in Settings."
+      return .none
+    }
+    guard state.isRemappingScratchpadFocused || state.modeLibrary.available(document.mode) else {
+      state.error = "The selected mode's processor is unavailable. Open Modes in Settings to repair it."
+      return .none
+    }
+    let previousCleanup = cleanupUnpublished(state.recovery)
+    state.recovery = nil
+    state.session = .init(id: uuid(), mode: document, processor: state.modeLibrary.processor(for: document.mode), settings: state.hexSettings, scratchpad: state.isRemappingScratchpadFocused)
+    state.phase = "recording"
     state.isRecording = true
     let startTime = now
     state.recordingStartTime = startTime
     
     // Capture the active application
+    state.sourceAppBundleID = nil; state.sourceAppName = nil
     if let activeApp = NSWorkspace.shared.frontmostApplication {
       state.sourceAppBundleID = activeApp.bundleIdentifier
       state.sourceAppName = activeApp.localizedName
@@ -296,6 +465,8 @@ private extension TranscriptionFeature {
 
     // Prevent system sleep during recording
     return .merge(
+      previousCleanup,
+      .cancel(id: CancelID.transcription),
       .cancel(id: CancelID.recordingCleanup),
       .run { [sleepManagement, preventSleep = state.hexSettings.preventSystemSleep] _ in
         // Play sound immediately for instant feedback
@@ -325,8 +496,8 @@ private extension TranscriptionFeature {
 
     let decision = RecordingDecisionEngine.decide(
       .init(
-        hotkey: state.hexSettings.hotkey,
-        minimumKeyTime: state.hexSettings.minimumKeyTime,
+        hotkey: state.session?.settings.hotkey ?? state.hexSettings.hotkey,
+        minimumKeyTime: state.session?.settings.minimumKeyTime ?? state.hexSettings.minimumKeyTime,
         recordingStartTime: state.recordingStartTime,
         currentTime: stopTime
       )
@@ -347,7 +518,10 @@ private extension TranscriptionFeature {
       return handleDiscard(&state)
     }
 
-    let model = state.hexSettings.selectedModel
+    let snapshot = state.session ?? RecordingSnapshot(id: uuid(), mode: .init(mode: .dictation), processor: nil, settings: state.hexSettings, scratchpad: state.isRemappingScratchpadFocused)
+    state.session = snapshot
+    state.phase = "transcribing"
+    let model = snapshot.settings.selectedModel
     guard !model.isEmpty else {
       // Defense-in-depth: handleStartRecording already blocks recording when the
       // bootstrap state says no model is ready, but settings can change while a
@@ -364,7 +538,7 @@ private extension TranscriptionFeature {
     // Otherwise, proceed to transcription
     state.isTranscribing = true
     state.error = nil
-    let language = state.hexSettings.outputLanguage
+    let language = snapshot.settings.outputLanguage
 
     state.isPrewarming = true
 
@@ -391,11 +565,11 @@ private extension TranscriptionFeature {
             return
           case .ignored(.noActiveRecording):
             transcriptionFeatureLogger.error("Recording stopped without captured audio")
-            await send(.transcriptionError(RecordingFailure.noCapturedAudio, nil))
+            await send(.sessionError(snapshot.id, RecordingFailure.noCapturedAudio.localizedDescription))
             return
           case let .failed(error):
             transcriptionFeatureLogger.error("Recording stop failed: \(error.localizedDescription)")
-            await send(.transcriptionError(error, nil))
+            await send(.sessionError(snapshot.id, error.localizedDescription))
             return
           }
           audioURL = capturedURL
@@ -413,11 +587,13 @@ private extension TranscriptionFeature {
           let result = try await transcription.transcribe(capturedURL, model, decodeOptions) { _ in }
 
           transcriptionFeatureLogger.notice("Transcribed audio from \(capturedURL.lastPathComponent) to text length \(result.count)")
+          guard !Task.isCancelled else { return }
+          let artifact = RecordingArtifact(capturedURL)
           audioURL = nil
-          await send(.transcriptionResult(result, capturedURL, duration))
+          await send(.sessionTranscript(snapshot.id, result, artifact, duration))
         } catch {
           transcriptionFeatureLogger.error("Transcription failed: \(error.localizedDescription)")
-          await send(.transcriptionError(error, nil))
+          await send(.sessionError(snapshot.id, error.localizedDescription))
         }
       }
       .cancellable(id: CancelID.transcription)
@@ -428,149 +604,67 @@ private extension TranscriptionFeature {
 // MARK: - Transcription Handlers
 
 private extension TranscriptionFeature {
-  func handleTranscriptionResult(
-    _ state: inout State,
-    result: String,
-    audioURL: URL,
-    duration: TimeInterval
-  ) -> Effect<Action> {
-    state.isTranscribing = false
-    state.isPrewarming = false
-
-    // Check for force quit command (emergency escape hatch)
+  func acceptTranscript(_ state: inout State, result: String, artifact: RecordingArtifact, duration: TimeInterval) -> Effect<Action> {
+    guard let snapshot = state.session else { return .none }
     if ForceQuitCommandDetector.matches(result) {
-      transcriptionFeatureLogger.fault("Force quit voice command recognized; terminating Hex.")
-      return .run { _ in
-        FileManager.default.removeItemIfExists(at: audioURL)
-        await MainActor.run {
-          NSApp.terminate(nil)
-        }
-      }
+      state.session = nil; state.isTranscribing = false
+      return .run { _ in await MainActor.run { NSApp.terminate(nil) } }
     }
-
-    // If empty text, nothing else to do
     guard !result.isEmpty else {
-      return .run { _ in
-        FileManager.default.removeItemIfExists(at: audioURL)
+      state.session = nil; state.isTranscribing = false; state.isPrewarming = false; state.phase = "idle"
+      return .none
+    }
+    var input = result
+    if !snapshot.scratchpad {
+      if snapshot.settings.wordRemovalsEnabled { input = WordRemovalApplier.apply(input, removals: snapshot.settings.wordRemovals) }
+      input = WordRemappingApplier.apply(input, remappings: snapshot.settings.wordRemappings)
+    }
+    var transcript = Transcript(timestamp: now, text: "", audioPath: artifact.url, duration: duration, sourceAppBundleID: state.sourceAppBundleID, sourceAppName: state.sourceAppName)
+    transcript.originalText = result; transcript.processorInput = input
+    transcript.modeID = snapshot.mode.id; transcript.modeName = snapshot.mode.mode.name
+    transcript.finalFormatting = .init(lowercase: snapshot.mode.mode.formatting.lowercase ?? snapshot.settings.lowercaseTranscripts, removePunctuation: snapshot.mode.mode.formatting.removePunctuation ?? snapshot.settings.removePunctuation)
+    state.isTranscribing = true; state.isPrewarming = false
+    if let processor = snapshot.processor, !snapshot.scratchpad {
+      let request = TextProcessorRequest(runID: snapshot.id, input: input, prompt: snapshot.mode.prompt, processor: processor)
+      transcript.processingRequest = request
+      state.recovery = .init(transcript: transcript, artifact: artifact)
+      state.phase = "processing"
+      return processingEffect(request)
+    }
+    state.recovery = .init(transcript: transcript, artifact: artifact)
+    return .send(.processed(snapshot.id, input, nil))
+  }
+
+  func cleanupUnpublished(_ recovery: RecoveryResult?) -> Effect<Action> {
+    guard let recovery, recovery.persisted, !recovery.published else { return .none }
+    return .run { _ in try? await transcriptPersistence.deleteAudio(recovery.transcript) }
+  }
+
+  func publishHistory(_ state: inout State) -> Effect<Action> {
+    guard var recovery = state.recovery, recovery.persisted, state.hexSettings.saveTranscriptionHistory else { return .none }
+    recovery.published = true; state.recovery = recovery
+    let transcript = recovery.transcript
+    var removed: [Transcript] = []
+    state.$transcriptionHistory.withLock { history in
+      history.history.removeAll { $0.id == transcript.id }; history.history.insert(transcript, at: 0)
+      if let maximum = state.session?.settings.maxHistoryEntries, maximum > 0 {
+        while history.history.count > maximum { removed.append(history.history.removeLast()) }
       }
     }
+    return .run { [removed] _ in for entry in removed { try? await transcriptPersistence.deleteAudio(entry) } }
+  }
 
-    transcriptionFeatureLogger.info("Raw transcription: '\(result, privacy: .private)'")
-    let remappings = state.hexSettings.wordRemappings
-    let removalsEnabled = state.hexSettings.wordRemovalsEnabled
-    let removals = state.hexSettings.wordRemovals
-    let modifiedResult: String
-    if state.isRemappingScratchpadFocused {
-      modifiedResult = result
-      transcriptionFeatureLogger.info("Scratchpad focused; skipping word modifications")
-    } else {
-      var output = result
-      if removalsEnabled {
-        let removedResult = WordRemovalApplier.apply(output, removals: removals)
-        if removedResult != output {
-          let enabledRemovalCount = removals.filter(\.isEnabled).count
-          transcriptionFeatureLogger.info("Applied \(enabledRemovalCount) word removal(s)")
-        }
-        output = removedResult
-      }
-      let remappedResult = WordRemappingApplier.apply(output, remappings: remappings)
-      if remappedResult != output {
-        transcriptionFeatureLogger.info("Applied \(remappings.count) word remapping(s)")
-      }
-      let formattedResult = TranscriptFormattingApplier.apply(
-        remappedResult,
-        lowercase: state.hexSettings.lowercaseTranscripts,
-        removePunctuation: state.hexSettings.removePunctuation
-      )
-      if formattedResult != remappedResult {
-        transcriptionFeatureLogger.info("Applied paste formatting")
-      }
-      modifiedResult = formattedResult
-    }
-
-    guard !modifiedResult.isEmpty else {
-      return .run { _ in
-        FileManager.default.removeItemIfExists(at: audioURL)
-      }
-    }
-
-    let sourceAppBundleID = state.sourceAppBundleID
-    let sourceAppName = state.sourceAppName
-    let transcriptionHistory = state.$transcriptionHistory
-
-    return .run { send in
+  func processingEffect(_ request: TextProcessorRequest) -> Effect<Action> {
+    .run { send in
       do {
-        try await finalizeRecordingAndStoreTranscript(
-          result: modifiedResult,
-          duration: duration,
-          sourceAppBundleID: sourceAppBundleID,
-          sourceAppName: sourceAppName,
-          audioURL: audioURL,
-          transcriptionHistory: transcriptionHistory
-        )
-      } catch {
-        await send(.transcriptionError(error, audioURL))
-      }
-    }
-    .cancellable(id: CancelID.transcription)
+        let result = try await textProcessor.run(request)
+        try Task.checkCancellation()
+        await send(.processed(request.runID, result.text, nil))
+      } catch is CancellationError { }
+      catch { await send(.processed(request.runID, nil, (error as? TextProcessorFailure) ?? .init(error.localizedDescription))) }
+    }.cancellable(id: CancelID.transcription, cancelInFlight: true)
   }
 
-  func handleTranscriptionError(
-    _ state: inout State,
-    error: Error,
-    audioURL: URL?
-  ) -> Effect<Action> {
-    state.isTranscribing = false
-    state.isPrewarming = false
-    state.error = error.localizedDescription
-    
-    if let audioURL {
-      FileManager.default.removeItemIfExists(at: audioURL)
-    }
-
-    return .none
-  }
-
-  /// Move file to permanent location, create a transcript record, paste text, and play sound.
-  func finalizeRecordingAndStoreTranscript(
-    result: String,
-    duration: TimeInterval,
-    sourceAppBundleID: String?,
-    sourceAppName: String?,
-    audioURL: URL,
-    transcriptionHistory: Shared<TranscriptionHistory>
-  ) async throws {
-    @Shared(.hexSettings) var hexSettings: HexSettings
-
-    if hexSettings.saveTranscriptionHistory {
-      let transcript = try await transcriptPersistence.save(
-        result,
-        audioURL,
-        duration,
-        sourceAppBundleID,
-        sourceAppName
-      )
-
-      transcriptionHistory.withLock { history in
-        history.history.insert(transcript, at: 0)
-
-        if let maxEntries = hexSettings.maxHistoryEntries, maxEntries > 0 {
-          while history.history.count > maxEntries {
-            if let removedTranscript = history.history.popLast() {
-              Task {
-                 try? await transcriptPersistence.deleteAudio(removedTranscript)
-              }
-            }
-          }
-        }
-      }
-    } else {
-      FileManager.default.removeItemIfExists(at: audioURL)
-    }
-
-    await pasteboard.paste(result)
-    soundEffect.play(.pasteTranscript)
-  }
 }
 
 // MARK: - Cancel/Discard Handlers
@@ -578,11 +672,14 @@ private extension TranscriptionFeature {
 private extension TranscriptionFeature {
   func handleCancel(_ state: inout State) -> Effect<Action> {
     let wasRecording = state.isRecording
+    let previousCleanup = cleanupUnpublished(state.recovery)
+    state.session = nil; state.recovery = nil; state.phase = "idle"
     state.isTranscribing = false
     state.isRecording = false
     state.isPrewarming = false
 
     return .merge(
+      previousCleanup,
       .cancel(id: CancelID.transcription),
       .cancel(id: CancelID.recordingStart),
       .run { [sleepManagement] _ in
@@ -605,6 +702,7 @@ private extension TranscriptionFeature {
   }
 
   func handleDiscard(_ state: inout State) -> Effect<Action> {
+    state.session = nil; state.recovery = nil; state.phase = "idle"
     state.isRecording = false
     state.isPrewarming = false
 
@@ -644,10 +742,17 @@ struct TranscriptionView: View {
   }
 
   var body: some View {
-    TranscriptionIndicatorView(
+    VStack(spacing: 6) {
+      if store.isRecording || store.isTranscribing {
+        Text("\(store.session?.mode.mode.name ?? "Dictation") · \(store.phase.capitalized)")
+          .font(.caption).padding(5).background(.regularMaterial, in: Capsule())
+      }
+      TranscriptionIndicatorView(
       status: status,
       meter: store.meter
     )
+      if store.isRecording || store.isTranscribing { Text("Esc to cancel").font(.caption).padding(4).background(.regularMaterial, in: Capsule()) }
+    }
     .task {
       await store.send(.task).finish()
     }
@@ -670,4 +775,8 @@ private enum ForceQuitCommandDetector {
       .filter { !$0.isEmpty }
       .joined(separator: " ")
   }
+}
+
+private extension TranscriptionFeature.Action {
+  var isCopyOriginal: Bool { if case .copyOriginal = self { return true }; return false }
 }

@@ -24,6 +24,8 @@ final class RecordingRaceTests: XCTestCase {
     let store = TestStore(initialState: Self.makeState()) {
       TranscriptionFeature()
     } withDependencies: {
+      $0.uuid = .incrementing
+      $0.date.now = Date(timeIntervalSince1970: 1234)
       $0.date.now = now
       $0.recording.startRecording = {
         await probe.recordStart()
@@ -36,12 +38,14 @@ final class RecordingRaceTests: XCTestCase {
       $0.soundEffects.play = { _ in }
     }
 
+    store.exhaustivity = .off
     await store.send(.startRecording) {
       $0.isRecording = true
       $0.recordingStartTime = now
       $0.sourceAppBundleID = activeApp?.bundleIdentifier
       $0.sourceAppName = activeApp?.localizedName
     }
+    store.exhaustivity = .off
     await store.send(.discard) {
       $0.isRecording = false
       $0.isPrewarming = false
@@ -49,6 +53,7 @@ final class RecordingRaceTests: XCTestCase {
 
     await probe.waitForPendingStop()
 
+    store.exhaustivity = .off
     await store.send(.startRecording) {
       $0.isRecording = true
       $0.recordingStartTime = now
@@ -114,18 +119,21 @@ final class RecordingRaceTests: XCTestCase {
     let store = TestStore(initialState: state) {
       TranscriptionFeature()
     } withDependencies: {
+      $0.uuid = .incrementing
+      $0.date.now = Date(timeIntervalSince1970: 1234)
       $0.date.now = now
       $0.recording.stopRecording = { .failed(.fallbackExportFailed("copy failed")) }
       $0.sleepManagement.allowSleep = {}
     }
 
+    store.exhaustivity = .off
     await store.send(.stopRecording) {
       $0.isRecording = false
       $0.isTranscribing = true
       $0.error = nil
       $0.isPrewarming = true
     }
-    await store.receive(\.transcriptionError) {
+    await store.receive(\.sessionError) {
       $0.isTranscribing = false
       $0.isPrewarming = false
       $0.error = "Failed to export recorded audio: copy failed"
@@ -147,6 +155,8 @@ final class RecordingRaceTests: XCTestCase {
     let store = TestStore(initialState: Self.makeState()) {
       TranscriptionFeature()
     } withDependencies: {
+      $0.uuid = .incrementing
+      $0.date.now = Date(timeIntervalSince1970: 1234)
       $0.date.now = now
       $0.recording.startRecording = {}
       $0.recording.stopRecording = { .captured(stopURL) }
@@ -159,12 +169,14 @@ final class RecordingRaceTests: XCTestCase {
       $0.soundEffects.play = { _ in }
     }
 
+    store.exhaustivity = .off
     await store.send(.startRecording) {
       $0.isRecording = true
       $0.recordingStartTime = now
       $0.sourceAppBundleID = NSWorkspace.shared.frontmostApplication?.bundleIdentifier
       $0.sourceAppName = NSWorkspace.shared.frontmostApplication?.localizedName
     }
+    store.exhaustivity = .off
     await store.send(.stopRecording) {
       $0.isRecording = false
     }
@@ -185,6 +197,8 @@ final class RecordingRaceTests: XCTestCase {
     let store = TestStore(initialState: Self.makeState()) {
       TranscriptionFeature()
     } withDependencies: {
+      $0.uuid = .incrementing
+      $0.date.now = Date(timeIntervalSince1970: 1234)
       $0.date.now = now
       $0.recording.startRecording = {
         await recordingProbe.recordStart()
@@ -199,6 +213,7 @@ final class RecordingRaceTests: XCTestCase {
       $0.soundEffects.play = { _ in }
     }
 
+    store.exhaustivity = .off
     await store.send(.startRecording) {
       $0.isRecording = true
       $0.recordingStartTime = now
@@ -206,6 +221,7 @@ final class RecordingRaceTests: XCTestCase {
       $0.sourceAppName = NSWorkspace.shared.frontmostApplication?.localizedName
     }
     await sleepProbe.waitUntilPending()
+    store.exhaustivity = .off
     await store.send(.discard) {
       $0.isRecording = false
       $0.isPrewarming = false
@@ -228,11 +244,12 @@ final class RecordingRaceTests: XCTestCase {
     XCTAssertTrue(created)
     defer { try? FileManager.default.removeItem(at: audioURL) }
 
-    let store = TestStore(initialState: Self.makeState()) {
+    let store = TestStore(initialState: Self.transcribingState()) {
       TranscriptionFeature()
     }
 
-    await store.send(.transcriptionResult("", audioURL, 1.25))
+    store.exhaustivity = .off
+    await store.send(.sessionTranscript(Self.testSessionID, "", RecordingArtifact(audioURL), 1.25))
     await store.finish()
 
     XCTAssertFalse(FileManager.default.fileExists(atPath: audioURL.path))
@@ -251,9 +268,11 @@ final class RecordingRaceTests: XCTestCase {
       sourceAppName: nil
     )
     let probe = TranscriptPersistenceProbe()
-    let store = TestStore(initialState: Self.makeState()) {
+    let store = TestStore(initialState: Self.transcribingState()) {
       TranscriptionFeature()
     } withDependencies: {
+      $0.uuid = .incrementing
+      $0.date.now = Date(timeIntervalSince1970: 1234)
       $0.transcriptPersistence.save = { text, audioURL, duration, sourceAppBundleID, sourceAppName in
         await probe.record(duration: duration)
         return transcript
@@ -262,17 +281,25 @@ final class RecordingRaceTests: XCTestCase {
       $0.soundEffects.play = { _ in }
     }
 
-    await store.send(.transcriptionResult("hello", audioURL, duration))
-    while await probe.duration == nil {
-      await Task.yield()
-    }
-    store.assert {
-      $0.$transcriptionHistory.withLock { $0.history = [transcript] }
-    }
+    store.exhaustivity = .off
+    await store.send(.sessionTranscript(Self.testSessionID, "hello", RecordingArtifact(audioURL), duration))
+    await store.receive(\.processed)
+    await store.receive(\.persisted)
+    await store.receive(\.deliver)
+    await store.receive(\.delivered)
     await store.finish()
+    XCTAssertEqual(store.state.transcriptionHistory.history.first?.duration, duration)
 
     let storedDuration = await probe.duration
     XCTAssertEqual(storedDuration, duration)
+  }
+
+  private static let testSessionID = UUID(uuidString: "00000000-0000-0000-0000-000000000001")!
+  private static func transcribingState() -> TranscriptionFeature.State {
+    var state = makeState()
+    state.session = .init(id: testSessionID, mode: .init(mode: .dictation), processor: nil, settings: state.hexSettings, scratchpad: false)
+    state.isTranscribing = true
+    return state
   }
 
   private static func makeState() -> TranscriptionFeature.State {

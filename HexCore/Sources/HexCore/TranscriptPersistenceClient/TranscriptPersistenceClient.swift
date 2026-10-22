@@ -21,9 +21,9 @@ extension TranscriptPersistenceClient: DependencyKey {
                 let recordingsFolder = HexStoragePaths.live.recordings
                 try fm.createDirectory(at: recordingsFolder, withIntermediateDirectories: true)
                 
-                let filename = "\(Date().timeIntervalSince1970).wav"
+                let filename = "\(UUID().uuidString).wav"
                 let finalURL = recordingsFolder.appendingPathComponent(filename)
-                try fm.moveItem(at: audioURL, to: finalURL)
+                try fm.copyItem(at: audioURL, to: finalURL)
                 
                 return Transcript(
                     timestamp: Date(),
