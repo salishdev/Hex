@@ -89,6 +89,7 @@ public struct ModeConfigurationStore: Sendable {
     }
     public func modeDirectory(_ id: String) -> URL { root.appendingPathComponent("modes/\(id)") }
     public func processorURL(_ id: String) -> URL { root.appendingPathComponent("processors/\(id).json") }
+    public var scriptsDirectory: URL { root.appendingPathComponent("scripts") }
     public func revision(modeID: String) -> [Data?] {
         ["mode.json", "prompt.md"].map { try? Data(contentsOf: modeDirectory(modeID).appendingPathComponent($0)) }
     }

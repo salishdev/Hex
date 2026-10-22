@@ -242,9 +242,9 @@ struct TranscriptView: View {
                 DisclosureGroup("Original dictation") { Text(original).textSelection(.enabled) }.padding(12)
             }
             if let input = transcript.processorInput, input != transcript.originalText {
-                DisclosureGroup("Processor input") { Text(input).textSelection(.enabled) }.padding(12)
+                DisclosureGroup("Tool input") { Text(input).textSelection(.enabled) }.padding(12)
             }
-            if let onRetry { Button("Retry captured processor", action: onRetry).padding(12) }
+            if let onRetry { Button("Retry Processing", action: onRetry).padding(12) }
 			Divider()
 
 			HStack {

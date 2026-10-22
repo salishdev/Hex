@@ -444,7 +444,7 @@ private extension TranscriptionFeature {
       return .none
     }
     guard state.isRemappingScratchpadFocused || state.modeLibrary.available(document.mode) else {
-      state.error = "The selected mode's processor is unavailable. Open Modes in Settings to repair it."
+      state.error = "The selected mode's tool is missing. Open Modes to fix it."
       return .none
     }
     let previousCleanup = cleanupUnpublished(state.recovery)

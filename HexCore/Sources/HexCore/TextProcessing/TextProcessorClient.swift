@@ -96,7 +96,7 @@ private enum ProcessorRun {
         defer { for pair in pipes { for fd in pair where fd >= 0 { close(fd) } } }
         for _ in 0..<3 {
             var pair: [Int32] = [-1, -1]
-            guard pipe(&pair) == 0 else { throw TextProcessorFailure("Could not create processor pipes") }
+            guard pipe(&pair) == 0 else { throw TextProcessorFailure("Could not start the tool (no pipes available)") }
             for fd in pair { _ = fcntl(fd, F_SETFD, FD_CLOEXEC) }
             pipes.append(pair)
         }
@@ -149,7 +149,7 @@ private enum ProcessorRun {
         while true {
             if failure == nil {
                 if cancellation.isCancelled { failure = "Cancelled" }
-                else if Date().timeIntervalSince(started) >= request.processor.timeout { failure = "Processor timed out" }
+                else if Date().timeIntervalSince(started) >= request.processor.timeout { failure = "The tool ran longer than its time limit" }
             }
             if failure != nil, terminationTime == nil { kill(-pid, SIGTERM); terminationTime = Date(); closePipe(0, 1) }
             if let terminationTime, Date().timeIntervalSince(terminationTime) >= 0.2, !escalated {
@@ -165,7 +165,7 @@ private enum ProcessorRun {
                 else {
                     let count = input.withUnsafeBytes { bytes in Darwin.write(pipes[0][1], bytes.baseAddress!.advanced(by: written), min(16_384, input.count - written)) }
                     if count > 0 { written += count }
-                    else if count < 0 && errno != EAGAIN && errno != EINTR { failure = failure ?? "Could not write processor input (broken pipe)"; closePipe(0, 1) }
+                    else if count < 0 && errno != EAGAIN && errno != EINTR { failure = failure ?? "Could not send the dictation to the tool (broken pipe)"; closePipe(0, 1) }
                 }
             }
             for index in 1...2 where pipes[index][0] >= 0 {
@@ -174,11 +174,11 @@ private enum ProcessorRun {
                 if count > 0 {
                     let limit = index == 1 ? 4 * 1024 * 1024 : 256 * 1024
                     let current = index == 1 ? output.count : diagnostics.count
-                    if current + count > limit { failure = failure ?? "Processor exceeded the \(index == 1 ? "stdout (4 MiB)" : "stderr (256 KiB)") limit" }
+                    if current + count > limit { failure = failure ?? "The tool exceeded the \(index == 1 ? "stdout (4 MiB)" : "stderr (256 KiB)") limit" }
                     let chunk = buffer.prefix(min(count, max(0, limit - current)))
                     if index == 1 { output.append(contentsOf: chunk) } else { diagnostics.append(contentsOf: chunk) }
                 } else if count == 0 { closePipe(index, 0) }
-                else if errno != EAGAIN && errno != EINTR { failure = failure ?? "Could not read processor output"; closePipe(index, 0) }
+                else if errno != EAGAIN && errno != EINTR { failure = failure ?? "Could not read the tool's output"; closePipe(index, 0) }
             }
             if let terminationTime, escalated, Date().timeIntervalSince(terminationTime) > 0.5, exited { break }
             if exited && pipes[1][0] < 0 && pipes[2][0] < 0 && (terminationTime == nil || escalated) { break }
@@ -192,11 +192,13 @@ private enum ProcessorRun {
         let stderr = String(decoding: diagnostics, as: UTF8.self)
         if let failure { throw TextProcessorFailure(failure, diagnostics: stderr) }
         guard status == 0 else {
-            let reason = (status & 0x7f) == 0 ? "exit code \(status >> 8)" : "signal \(status & 0x7f)"
-            throw TextProcessorFailure("Processor exited unsuccessfully (\(reason))", diagnostics: stderr)
+            let code = status >> 8
+            let reason = (status & 0x7f) != 0 ? "signal \(status & 0x7f)"
+                : code == 127 ? "exit code 127: a command it runs wasn't found" : "exit code \(code)"
+            throw TextProcessorFailure("The tool failed (\(reason))", diagnostics: stderr)
         }
-        guard let text = String(data: output, encoding: .utf8) else { throw TextProcessorFailure("Processor stdout is not valid UTF-8", diagnostics: stderr) }
-        guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { throw TextProcessorFailure("Processor returned empty output", diagnostics: stderr) }
+        guard let text = String(data: output, encoding: .utf8) else { throw TextProcessorFailure("The tool's output isn't valid UTF-8 text", diagnostics: stderr) }
+        guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { throw TextProcessorFailure("The tool printed no text", diagnostics: stderr) }
         return .init(text: text, diagnostics: stderr, elapsed: Date().timeIntervalSince(started))
     }
 }
