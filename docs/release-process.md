@@ -2,7 +2,9 @@
 
 This fork packages locally using Apple Developer ID signing and notarization. App Sandbox is disabled; hardened runtime, audio input and automation entitlements, privacy descriptions, Developer ID signing, and notarization remain required. See [storage and migration](storage.md). Artifacts are reviewed and published on GitHub separately. There is no tag-triggered publishing workflow and no S3 dependency.
 
-The product name remains Hex while branding is being decided. Before the first public release, finalize the name and bundle ID (`Config/Fork.xcconfig`); changing a published bundle ID creates a separate application with new permissions and storage.
+For an end-to-end release delegated to a local agent, start with [the agent release runbook](agent-release.md). It covers authorization, terminal checkpoints, validation, publication, feed verification, and recovery.
+
+The published product is Hex with bundle ID `com.salishdev.Hex` (`Config/Fork.xcconfig`). Changing a published bundle ID creates a separate application with new permissions and storage.
 
 ## One-time setup
 
@@ -23,11 +25,11 @@ This development machine has Astere Software LLC certificates for team `WW59U84Z
 From a clean committed checkout, run the full process in an interactive terminal:
 
 ```bash
-TEAM_ID=WW59U84Z7X BUILD_NUMBER=93 NOTARY_PROFILE=apple-developer-store-credentials \
+TEAM_ID=WW59U84Z7X BUILD_NUMBER=95 NOTARY_PROFILE=apple-developer-store-credentials \
   bun run release:run
 ```
 
-Replace `93` with an unused build number greater than the last shipped build. The command checks signing prerequisites, fetches tags, drafts missing changesets, pauses for editing, shows the Changesets plan, and asks before applying the version/changelog updates and creating a release commit. It then runs the release-tooling and core tests, packages the app, and generates release-specific notes. It pauses for you to confirm CI passed and test the packaged app. It signs the final DMG with the fork's Sparkle key and generates `appcast.xml`. After a final prompt it pushes the current branch to `origin` and uploads a **draft** release (including the appcast) to `salishdev/Hex`. Publishing the reviewed release triggers the Sparkle feed deployment workflow. The existing `bun run release` command remains packaging-only.
+Replace `95` with an unused build number greater than the last shipped build. The command checks signing prerequisites, fetches tags, drafts missing changesets, pauses for editing, shows the Changesets plan, and asks before applying the version/changelog updates and creating a release commit. It then runs the release-tooling and core tests, packages the app, and generates release-specific notes. It pauses for you to confirm CI passed and test the packaged app. It signs the final DMG with the fork's Sparkle key and generates `appcast.xml`. After a final prompt it pushes the current branch to `origin` and uploads a **draft** release (including the appcast) to `salishdev/Hex`. Publishing the reviewed release triggers the Sparkle feed deployment workflow. The existing `bun run release` command remains packaging-only.
 
 Keep this terminal open while reviewing files at each prompt; answer `y` to continue or anything else to stop. To edit notes before upload, use the printed `build/releases/<version>-<build>/release-notes.md` path. Check both the package output and GitHub draft before publishing.
 
@@ -35,12 +37,12 @@ Resume using the same environment variables and one of these options:
 
 - `--from version`: review and process existing changesets without redrafting them. Commit reviewed drafts first so the checkout is clean.
 - `--from package`: skip versioning when the release version/changelog are already committed. This is the appropriate starting point for a manually prepared release.
-- `--from draft`: reuse artifacts from a successful `release:run` packaging stage. The command verifies their recorded commit, version, build number, and checksums. It still asks for test confirmation and upload approval. For artifacts built directly with `bun run release`, create the draft manually using the command below.
+- `--from draft`: reuse artifacts from a successful `release:run` packaging stage. The command verifies their recorded commit, version, build number, and checksums. It still asks for test confirmation and upload approval. Raw `bun run release` outputs lack this manifest and the signed appcast. Use `release:run --from package` with a fresh build number for a complete Sparkle release.
 
 For example, after committing an already prepared version:
 
 ```bash
-TEAM_ID=WW59U84Z7X BUILD_NUMBER=93 NOTARY_PROFILE=apple-developer-store-credentials \
+TEAM_ID=WW59U84Z7X BUILD_NUMBER=95 NOTARY_PROFILE=apple-developer-store-credentials \
   bun run release:run --from package
 ```
 
@@ -79,7 +81,7 @@ bun run changeset:version
 bun run sync-changelog
 ```
 
-Review `package.json`, `CHANGELOG.md`, and `Hex/Resources/changelog.md`, then commit the release changes. Agents should only create changeset fragments, not process them.
+Review `package.json`, `CHANGELOG.md`, and `Hex/Resources/changelog.md`, then commit the release changes. Ordinary development agents create fragments only; an agent explicitly assigned a release may act as maintainer and process them through the release tool.
 
 The archive takes its marketing version from `package.json` and its build number from `BUILD_NUMBER`. It does not edit source metadata. Choose an unused integer greater than the last shipped build; upstream ended at 92. Never reuse a build number for a different artifact.
 
@@ -90,14 +92,14 @@ Project settings belong in `project.yml` or the shared `.xcconfig` inputs. Gener
 Check prerequisites first (replace the sample build number):
 
 ```bash
-TEAM_ID=WW59U84Z7X BUILD_NUMBER=93 NOTARY_PROFILE=apple-developer-store-credentials \
+TEAM_ID=WW59U84Z7X BUILD_NUMBER=95 NOTARY_PROFILE=apple-developer-store-credentials \
   bun run release --check
 ```
 
 Then, from a clean committed checkout:
 
 ```bash
-TEAM_ID=WW59U84Z7X BUILD_NUMBER=93 NOTARY_PROFILE=apple-developer-store-credentials \
+TEAM_ID=WW59U84Z7X BUILD_NUMBER=95 NOTARY_PROFILE=apple-developer-store-credentials \
   bun run release
 ```
 
@@ -109,18 +111,25 @@ Test the packaged app from `/Applications` on a clean account or another Mac: fi
 
 ## Publish after review
 
-Create a draft release and upload the reviewed files. For example, after replacing the version and build:
+The guided command uploads the draft automatically. If a completed guided run stopped before uploading, the following manual equivalent uses its manifest, signed appcast, and reviewed files. Replace the version and build:
 
 ```bash
-gh release create v0.8.6 \
-  build/releases/0.8.6-93/Hex-0.8.6.zip \
-  build/releases/0.8.6-93/Hex-0.8.6.dmg \
-  build/releases/0.8.6-93/SHA256SUMS \
+gh release create v0.9.1 \
+  build/releases/0.9.1-95/Hex-0.9.1.zip \
+  build/releases/0.9.1-95/Hex-0.9.1.dmg \
+  build/releases/0.9.1-95/SHA256SUMS \
+  build/releases/0.9.1-95/appcast.xml \
   --repo salishdev/Hex --target "$(git rev-parse HEAD)" \
-  --draft --title 'Hex 0.8.6' --notes-file /path/to/release-notes.md
+  --draft --title 'Hex 0.9.1' --notes-file /path/to/release-notes.md
 ```
 
-Use release-specific notes from the changelog, including any known limitations. Verify the draft’s target commit and attachments before publishing in GitHub. Packaging alone never creates a tag or release.
+Use release-specific notes from the changelog, including any known limitations. Verify the draft’s target commit and attachments, then publish when authorized and ready:
+
+```bash
+gh release edit v0.9.1 --repo salishdev/Hex --draft=false --latest
+```
+
+Verify the public release and its Pages deployment as described in the [agent runbook](agent-release.md). Packaging alone never creates a tag or release. The sample version/build above must be replaced with the ones actually packaged; 0.9.0 shipped as build 93 and build 94 was used for integration testing.
 
 ## Updates and Homebrew
 

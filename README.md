@@ -59,9 +59,9 @@ CI runs core and app tests on pull requests and pushes to `main`. Swift package 
 
 ## Distribution
 
-Signed, notarized ZIP and DMG downloads will be distributed through this fork’s GitHub Releases. See [the release guide](docs/release-process.md) for signing setup, packaging, and publication. Until the first fork release, build from source.
+Signed, notarized ZIP and DMG downloads are available on [GitHub Releases](https://github.com/salishdev/Hex/releases). See [the release guide](docs/release-process.md) for signing setup, packaging, and publication, or [the local-agent runbook](docs/agent-release.md) to delegate a release from preparation through publishing and feed verification.
 
-“Check for Updates” opens this fork’s releases page. Automatic Sparkle updates remain inactive until a fork-owned feed and signing key are configured.
+0.9.0 opens this fork’s releases page for update checks. The first Sparkle-enabled release requires a manual download; its Release builds use the fork-owned signed feed on GitHub Pages. Debug builds continue to open GitHub Releases.
 
 ## Changes
 
@@ -72,7 +72,7 @@ bun run changeset:add-ai patch "Describe the user-facing change (#issue)"
 bun run changeset:status
 ```
 
-Use `minor` for new features and `major` for breaking changes. The release maintainer processes fragments when preparing a version; agents create fragments only.
+Use `minor` for new features and `major` for breaking changes. During normal development agents create fragments only. When explicitly asked to make a release, an agent can act as the release maintainer using the runbook above.
 
 ## License
 

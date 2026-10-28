@@ -43,7 +43,7 @@ The app uses **The Composable Architecture (TCA)** for state management. Key arc
 - **WhisperKit**: Core ML transcription (tracking main branch)
 - **FluidAudio (Parakeet)**: Core ML ASR (multilingual) default model
 - **Sauce**: Keyboard event monitoring
-- **Sparkle**: Optional auto-updates; inactive until this fork has its own feed and signing key. Update checks currently open this fork’s GitHub Releases.
+- **Sparkle**: Release builds use the fork-owned signed update feed on GitHub Pages. Debug update checks open GitHub Releases. Published 0.9.0 predates this integration and needs a manual download of the first Sparkle-enabled release.
 - **Swift Composable Architecture**: State management
 - **Inject** Hot Reloading for SwiftUI
 
@@ -119,7 +119,7 @@ App Sandbox is disabled for direct distribution. Keep hardened runtime, Develope
    bun run changeset:add-ai minor "Add new feature"
    bun run changeset:add-ai major "Breaking change"
    ```
-3. **Only create changesets, don't process them:** Agents should only create changeset fragments. The release tool is responsible for running `changeset version` to collect changesets into `CHANGELOG.md` and syncing to `Hex/Resources/changelog.md`.
+3. **Ordinary development creates fragments only:** The release tool processes changesets and syncs the changelog. When the user explicitly asks an agent to make a release, the agent acts as release maintainer and may run that tool through versioning, review, commit, packaging, and authorized publication. Follow [the local-agent release runbook](docs/agent-release.md); do not treat routine script checkpoints as new user-approval requirements.
 4. **Reference GitHub issues:** When a change addresses a filed issue, link it in code comments and the changeset entry (`(#123)`) so release notes and Sparkle updates point users back to the discussion. If the work should close an issue, include "Fixes #123" (or "Closes #123") in the commit or PR description so GitHub auto-closes it once merged.
 
 ## Git Commit Messages
@@ -140,5 +140,6 @@ App Sandbox is disabled for direct distribution. Keep hardened runtime, Develope
 - `.github/workflows/ci.yml` runs core and app tests. It does not publish releases.
 - `TEAM_ID=... BUILD_NUMBER=... NOTARY_PROFILE=... bun run release --check` checks packaging prerequisites.
 - `bun run release` with those variables packages signed/notarized ZIP and DMG files locally. It requires a clean committed tree and does not process changesets, tag, push, or publish.
-- The release maintainer processes changesets before packaging. Agents create fragments only.
-- See [docs/release-process.md](docs/release-process.md) for credential setup and reviewed GitHub publication.
+- `bun run release:run` guides release preparation through a signed GitHub draft; authorized publication uses `gh release edit <tag> --draft=false` followed by feed verification. It needs a persistent interactive terminal.
+- During ordinary development agents create fragments only. Explicitly authorized release tasks may run the full release-maintainer workflow, including processing changesets through the release tool.
+- For a release task, read [docs/agent-release.md](docs/agent-release.md) first. See [docs/release-process.md](docs/release-process.md) for credential setup and manual commands.
