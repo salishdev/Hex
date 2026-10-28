@@ -146,6 +146,8 @@ On GitHub, enable Pages with **GitHub Actions** as the publishing source. `.gith
 
 After publishing, confirm the Pages workflow succeeds and the public feed contains the new build. Keep published DMGs and their signatures immutable. Test an actual update between signed builds before shipping the first Sparkle-enabled release.
 
+See [Sparkle validation](sparkle-validation.md) for the signed build-93-to-94 installation test and its limits.
+
 Homebrew distribution can follow the first public release; create a fork-owned cask with an exact version and SHA-256. The old upstream cask has been removed to avoid installing upstream builds.
 
 References: [Apple notarization workflow](https://developer.apple.com/documentation/security/customizing-the-notarization-workflow), [Sparkle setup and signing](https://sparkle-project.org/documentation/).
