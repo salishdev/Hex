@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.9.0
+
+### Minor Changes
+
+- fe3d894: Add a separate History option to keep or skip saving audio recordings alongside transcripts
+- c40acf2: Add transcription modes with reusable script processors, instruction editing, tests, and recoverable output
+
+### Patch Changes
+
+- f4f9279: Add a quick local Release install command for dogfooding while preserving app data between builds
+- Add release preparation from git history with reviewable Changesets drafts
+- c40acf2: Add a working noninteractive Codex processor wrapper example and setup guidance
+- 1f6e2bb: Isolate the Salish fork from upstream updates and storage, and link update checks to its GitHub releases.
+- f4d8e00: Remove App Sandbox and preserve settings, history, recordings, and installed models in the new storage layout
+- c40acf2: Fix startup during storage migration when legacy history is empty
+- f4f9279: Default new settings to Parakeet v2 for English dictation while preserving existing model selections
+- d34da8c: Simplify mode and tool setup: modes save automatically, tools live in their own list with Codex and Claude Code presets, and commands are entered on one line
+
 ## 0.8.5
 
 ### Patch Changes
