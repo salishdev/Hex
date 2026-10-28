@@ -25,10 +25,10 @@ struct RecordingSnapshot: Equatable, Sendable {
 
 /// The original temporary recording has one owner, including while effects are cancelled.
 final class RecordingArtifact: @unchecked Sendable, Equatable {
-  let url: URL
+  let url: URL?
   let temporary: Bool
-  init(_ url: URL, temporary: Bool = true) { self.url = url; self.temporary = temporary }
-  deinit { if temporary { FileManager.default.removeItemIfExists(at: url) } }
+  init(_ url: URL?, temporary: Bool = true) { self.url = url; self.temporary = temporary }
+  deinit { if temporary, let url { FileManager.default.removeItemIfExists(at: url) } }
   static func == (lhs: RecordingArtifact, rhs: RecordingArtifact) -> Bool { lhs === rhs }
 }
 
@@ -195,9 +195,10 @@ struct TranscriptionFeature {
         }
         state.recovery = recovery; state.phase = "saving"
         if snapshot.settings.saveTranscriptionHistory && state.hexSettings.saveTranscriptionHistory && !recovery.persisted {
+          let keepAudio = snapshot.settings.saveRecordingAudio && state.hexSettings.saveRecordingAudio
           return .run { [recovery] send in
             do {
-              var stored = try await transcriptPersistence.save(recovery.transcript.text, recovery.artifact.url, recovery.transcript.duration, recovery.transcript.sourceAppBundleID, recovery.transcript.sourceAppName)
+              var stored = try await transcriptPersistence.save(recovery.transcript.text, keepAudio ? recovery.artifact.url : nil, recovery.transcript.duration, recovery.transcript.sourceAppBundleID, recovery.transcript.sourceAppName)
               stored.originalText = recovery.transcript.originalText; stored.processorInput = recovery.transcript.processorInput
               stored.modeID = recovery.transcript.modeID; stored.modeName = recovery.transcript.modeName
               stored.processingOutcome = recovery.transcript.processingOutcome; stored.processingRequest = recovery.transcript.processingRequest

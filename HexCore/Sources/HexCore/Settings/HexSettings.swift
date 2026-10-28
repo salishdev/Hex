@@ -42,6 +42,7 @@ public struct HexSettings: Codable, Equatable, Sendable {
 	public var selectedMicrophoneID: String?
 	public var saveTranscriptionHistory: Bool
 	public var maxHistoryEntries: Int?
+	public var saveRecordingAudio: Bool
 	public var pasteLastTranscriptHotkey: HotKey?
 	public var hasCompletedModelBootstrap: Bool
 	public var hasCompletedStorageMigration: Bool
@@ -78,6 +79,7 @@ public struct HexSettings: Codable, Equatable, Sendable {
 		selectedMicrophoneID: String? = nil,
 		saveTranscriptionHistory: Bool = true,
 		maxHistoryEntries: Int? = nil,
+		saveRecordingAudio: Bool = true,
 		pasteLastTranscriptHotkey: HotKey? = HexSettings.defaultPasteLastTranscriptHotkey,
 		hasCompletedModelBootstrap: Bool = false,
 		hasCompletedStorageMigration: Bool = false,
@@ -106,6 +108,7 @@ public struct HexSettings: Codable, Equatable, Sendable {
 		self.selectedMicrophoneID = selectedMicrophoneID
 		self.saveTranscriptionHistory = saveTranscriptionHistory
 		self.maxHistoryEntries = maxHistoryEntries
+		self.saveRecordingAudio = saveRecordingAudio
 		self.pasteLastTranscriptHotkey = pasteLastTranscriptHotkey
 		self.hasCompletedModelBootstrap = hasCompletedModelBootstrap
 		self.hasCompletedStorageMigration = hasCompletedStorageMigration
@@ -158,6 +161,7 @@ private enum HexSettingKey: String, CodingKey, CaseIterable {
 	case selectedMicrophoneID
 	case saveTranscriptionHistory
 	case maxHistoryEntries
+	case saveRecordingAudio
 	case pasteLastTranscriptHotkey
 	case hasCompletedModelBootstrap
 	case hasCompletedStorageMigration
@@ -280,6 +284,7 @@ private enum HexSettingsSchema {
 				try container.encodeIfPresent(value, forKey: key)
 			}
 		).eraseToAny(),
+		SettingsField(.saveRecordingAudio, keyPath: \.saveRecordingAudio, default: defaults.saveRecordingAudio).eraseToAny(),
 		SettingsField(
 			.pasteLastTranscriptHotkey,
 			keyPath: \.pasteLastTranscriptHotkey,

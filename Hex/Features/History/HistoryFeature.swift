@@ -145,13 +145,14 @@ struct HistoryFeature {
 				state.stopAudioPlayback()
 
 				// Find the transcript and play its audio
-				guard let transcript = state.transcriptionHistory.history.first(where: { $0.id == id }) else {
+				guard let transcript = state.transcriptionHistory.history.first(where: { $0.id == id }),
+				      let audioPath = transcript.audioPath else {
 					return .none
 				}
 
 				do {
 					let controller = AudioPlayerController()
-					try controller.play(url: transcript.audioPath)
+					try controller.play(url: audioPath)
 					let playbackID = UUID()
 
 					state.audioPlayerController = controller
@@ -289,12 +290,14 @@ struct TranscriptView: View {
 					.foregroundStyle(showCopied ? .green : .secondary)
 					.help("Copy to clipboard")
 
-					Button(action: onPlay) {
-						Image(systemName: isPlaying ? "stop.fill" : "play.fill")
+					if transcript.audioPath != nil {
+						Button(action: onPlay) {
+							Image(systemName: isPlaying ? "stop.fill" : "play.fill")
+						}
+						.buttonStyle(.plain)
+						.foregroundStyle(isPlaying ? .blue : .secondary)
+						.help(isPlaying ? "Stop playback" : "Play audio")
 					}
-					.buttonStyle(.plain)
-					.foregroundStyle(isPlaying ? .blue : .secondary)
-					.help(isPlaying ? "Stop playback" : "Play audio")
 
 					Button(action: onDelete) {
 						Image(systemName: "trash.fill")

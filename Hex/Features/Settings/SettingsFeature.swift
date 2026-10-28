@@ -100,6 +100,7 @@ struct SettingsFeature {
     // History Management
     case toggleSaveTranscriptionHistory(Bool)
     case setMaxHistoryEntries(Int?)
+    case setSaveRecordingAudio(Bool)
 
     // Modifier configuration
     case setModifierSide(Modifier.Kind, Modifier.Side)
@@ -561,6 +562,11 @@ struct SettingsFeature {
 
       case let .setMaxHistoryEntries(maxHistoryEntries):
         state.$hexSettings.withLock { $0.maxHistoryEntries = maxHistoryEntries }
+        return .none
+
+      case let .setSaveRecordingAudio(enabled):
+        // Existing recordings are kept; this only affects new transcripts.
+        state.$hexSettings.withLock { $0.saveRecordingAudio = enabled }
         return .none
 
       case let .setModifierSide(kind, side):

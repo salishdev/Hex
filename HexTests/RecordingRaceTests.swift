@@ -294,6 +294,40 @@ final class RecordingRaceTests: XCTestCase {
     XCTAssertEqual(storedDuration, duration)
   }
 
+  func testHistorySkipsAudioWhenAudioSavingIsDisabled() async {
+    let audioURL = FileManager.default.temporaryDirectory
+      .appendingPathComponent("history-no-audio-\(UUID().uuidString).wav")
+    var state = Self.transcribingState()
+    state.$hexSettings.withLock { $0.saveRecordingAudio = false }
+    state.session?.settings.saveRecordingAudio = false
+    let probe = TranscriptPersistenceProbe()
+    let store = TestStore(initialState: state) {
+      TranscriptionFeature()
+    } withDependencies: {
+      $0.uuid = .incrementing
+      $0.date.now = Date(timeIntervalSince1970: 1234)
+      $0.transcriptPersistence.save = { text, audioURL, duration, _, _ in
+        await probe.record(audioURL: audioURL)
+        return Transcript(timestamp: Date(timeIntervalSince1970: 1234), text: text, audioPath: audioURL, duration: duration)
+      }
+      $0.pasteboard.paste = { _ in }
+      $0.soundEffects.play = { _ in }
+    }
+
+    store.exhaustivity = .off
+    await store.send(.sessionTranscript(Self.testSessionID, "hello", RecordingArtifact(audioURL), 1))
+    await store.receive(\.processed)
+    await store.receive(\.persisted)
+    await store.receive(\.deliver)
+    await store.receive(\.delivered)
+    await store.finish()
+
+    let savedAudio = await probe.audioURL
+    XCTAssertEqual(savedAudio, .some(nil))
+    XCTAssertEqual(store.state.transcriptionHistory.history.first?.text, "hello")
+    XCTAssertNil(store.state.transcriptionHistory.history.first?.audioPath)
+  }
+
   private static let testSessionID = UUID(uuidString: "00000000-0000-0000-0000-000000000001")!
   private static func transcribingState() -> TranscriptionFeature.State {
     var state = makeState()
@@ -394,6 +428,11 @@ private actor PendingSleepProbe {
 
 private actor TranscriptPersistenceProbe {
   private(set) var duration: TimeInterval?
+  private(set) var audioURL: URL??
+
+  func record(audioURL: URL?) {
+    self.audioURL = .some(audioURL)
+  }
 
   func record(duration: TimeInterval) {
     self.duration = duration

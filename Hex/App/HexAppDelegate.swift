@@ -148,8 +148,8 @@ class HexAppDelegate: NSObject, NSApplicationDelegate {
 	}
 
 	func applicationWillTerminate(_: Notification) {
-        if let recovery = HexApp.appStore.transcription.recovery, recovery.artifact.temporary {
-            FileManager.default.removeItemIfExists(at: recovery.artifact.url)
+        if let recovery = HexApp.appStore.transcription.recovery, recovery.artifact.temporary, let url = recovery.artifact.url {
+            FileManager.default.removeItemIfExists(at: url)
         }
         HexApp.appStore.send(.transcription(.dismissResult))
         TextProcessorClient.terminateRunsForAppExit()

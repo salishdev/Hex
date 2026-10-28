@@ -69,8 +69,7 @@ public struct HexStoragePaths: Sendable {
             var json = try JSONSerialization.jsonObject(with: bytes) as! [String: Any]
             var entries = json["history"] as! [[String: Any]]
             for (index, transcript) in decoded.history.enumerated() {
-                let audio = transcript.audioPath
-                guard audio.isFileURL, try exists(audio, fileManager: fm) else { continue }
+                guard let audio = transcript.audioPath, audio.isFileURL, try exists(audio, fileManager: fm) else { continue }
                 var destination = recordings.appendingPathComponent("imported/\(transcript.id.uuidString).\(audio.pathExtension.isEmpty ? "wav" : audio.pathExtension)")
                 for (sourceIndex, root) in sources.enumerated() {
                     let prefix = root.appendingPathComponent("Recordings").standardizedFileURL.path + "/"

@@ -96,7 +96,7 @@ final class TranscriptionModesTests: XCTestCase {
         XCTAssertEqual(store.state.recovery?.transcript.originalText, "hello")
         XCTAssertEqual(store.state.recovery?.diagnostics, "Private diagnostics")
         XCTAssertTrue(store.state.transcriptionHistory.history.isEmpty)
-        XCTAssertTrue(FileManager.default.fileExists(atPath: artifact.url.path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: artifact.url!.path))
         await store.finish()
     }
     func testScratchpadBypassesProcessorAndFormatting() async throws {

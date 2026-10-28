@@ -49,6 +49,14 @@ final class HexSettingsMigrationTests: XCTestCase {
 		XCTAssertTrue(HexSettings().superFastModeEnabled)
 	}
 
+	func testSaveRecordingAudioDefaultsOnAndPersists() throws {
+		var settings = try JSONDecoder().decode(HexSettings.self, from: Data("{}".utf8))
+		XCTAssertTrue(settings.saveRecordingAudio)
+		settings.saveRecordingAudio = false
+		let decoded = try JSONDecoder().decode(HexSettings.self, from: JSONEncoder().encode(settings))
+		XCTAssertFalse(decoded.saveRecordingAudio)
+	}
+
 	func testRustBetaBannerDismissalDefaultsToVisibleAndPersists() throws {
 		var settings = try JSONDecoder().decode(HexSettings.self, from: Data("{}".utf8))
 		XCTAssertFalse(settings.hasDismissedRustBetaBanner)
