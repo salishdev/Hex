@@ -14,13 +14,24 @@ struct HistorySectionView: View {
 					get: { store.hexSettings.saveTranscriptionHistory },
 					set: { store.send(.toggleSaveTranscriptionHistory($0)) }
 				))
-				Text("Save transcriptions and audio recordings for later access")
+				Text("Save transcriptions for later access")
 					.settingsCaption()
 			} icon: {
 				Image(systemName: "clock.arrow.circlepath")
 			}
 
 			if store.hexSettings.saveTranscriptionHistory {
+				Label {
+					Toggle("Save Audio Recordings", isOn: Binding(
+						get: { store.hexSettings.saveRecordingAudio },
+						set: { store.send(.setSaveRecordingAudio($0)) }
+					))
+					Text("Keep the audio with each transcript so you can play it back. Existing recordings are not deleted.")
+						.settingsCaption()
+				} icon: {
+					Image(systemName: "waveform")
+				}
+
 				Label {
 					HStack {
 						Text("Maximum History Entries")

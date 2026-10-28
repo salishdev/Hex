@@ -108,6 +108,7 @@ struct HistoryFeature {
 	}
 
 	enum Action {
+		case retryTranscript(Transcript)
 		case playTranscript(UUID)
 		case stopPlayback
 		case copyToClipboard(String)
@@ -132,6 +133,7 @@ struct HistoryFeature {
 	var body: some ReducerOf<Self> {
 		Reduce { state, action in
 			switch action {
+            case .retryTranscript: return .none
 			case let .playTranscript(id):
 				if state.playingTranscriptID == id {
 					// Stop playback if tapping the same transcript
@@ -143,13 +145,14 @@ struct HistoryFeature {
 				state.stopAudioPlayback()
 
 				// Find the transcript and play its audio
-				guard let transcript = state.transcriptionHistory.history.first(where: { $0.id == id }) else {
+				guard let transcript = state.transcriptionHistory.history.first(where: { $0.id == id }),
+				      let audioPath = transcript.audioPath else {
 					return .none
 				}
 
 				do {
 					let controller = AudioPlayerController()
-					try controller.play(url: transcript.audioPath)
+					try controller.play(url: audioPath)
 					let playbackID = UUID()
 
 					state.audioPlayerController = controller
@@ -223,6 +226,7 @@ struct TranscriptView: View {
 	let onPlay: () -> Void
 	let onCopy: () -> Void
 	let onDelete: () -> Void
+    var onRetry: (() -> Void)? = nil
 
 	var body: some View {
 		VStack(alignment: .leading, spacing: 0) {
@@ -233,6 +237,15 @@ struct TranscriptView: View {
 				.padding(.trailing, 40) // Space for buttons
 				.padding(12)
 
+            if let mode = transcript.modeName { Text(mode).font(.caption).foregroundStyle(.secondary).padding(.horizontal, 12) }
+            if transcript.processingOutcome == "failed" { Text("Processing failed — original retained").foregroundStyle(.orange).padding(12) }
+            if let original = transcript.originalText {
+                DisclosureGroup("Original dictation") { Text(original).textSelection(.enabled) }.padding(12)
+            }
+            if let input = transcript.processorInput, input != transcript.originalText {
+                DisclosureGroup("Tool input") { Text(input).textSelection(.enabled) }.padding(12)
+            }
+            if let onRetry { Button("Retry Processing", action: onRetry).padding(12) }
 			Divider()
 
 			HStack {
@@ -277,12 +290,14 @@ struct TranscriptView: View {
 					.foregroundStyle(showCopied ? .green : .secondary)
 					.help("Copy to clipboard")
 
-					Button(action: onPlay) {
-						Image(systemName: isPlaying ? "stop.fill" : "play.fill")
+					if transcript.audioPath != nil {
+						Button(action: onPlay) {
+							Image(systemName: isPlaying ? "stop.fill" : "play.fill")
+						}
+						.buttonStyle(.plain)
+						.foregroundStyle(isPlaying ? .blue : .secondary)
+						.help(isPlaying ? "Stop playback" : "Play audio")
 					}
-					.buttonStyle(.plain)
-					.foregroundStyle(isPlaying ? .blue : .secondary)
-					.help(isPlaying ? "Stop playback" : "Play audio")
 
 					Button(action: onDelete) {
 						Image(systemName: "trash.fill")
@@ -373,8 +388,9 @@ struct HistoryView: View {
                   transcript: transcript,
                   isPlaying: store.playingTranscriptID == transcript.id,
                   onPlay: { store.send(.playTranscript(transcript.id)) },
-                  onCopy: { store.send(.copyToClipboard(transcript.text)) },
-                  onDelete: { store.send(.deleteTranscript(transcript.id)) }
+                  onCopy: { store.send(.copyToClipboard(transcript.isUsableOutput ? transcript.text : transcript.originalText ?? "")) },
+                  onDelete: { store.send(.deleteTranscript(transcript.id)) },
+                  onRetry: transcript.processingRequest == nil ? nil : { store.send(.retryTranscript(transcript)) }
                 )
               }
             }

@@ -19,6 +19,7 @@ struct AppFeature {
 
   enum ActiveTab: Equatable {
     case settings
+    case modes
     case remappings
     case history
     case about
@@ -28,6 +29,7 @@ struct AppFeature {
 	struct State {
 		var transcription: TranscriptionFeature.State = .init()
 		var settings: SettingsFeature.State = .init()
+        var modes: ModesFeature.State = .init()
 		var history: HistoryFeature.State = .init()
 		var activeTab: ActiveTab = .settings
 		@Shared(.hexSettings) var hexSettings: HexSettings
@@ -43,6 +45,7 @@ struct AppFeature {
     case binding(BindingAction<State>)
     case transcription(TranscriptionFeature.Action)
     case settings(SettingsFeature.Action)
+    case modes(ModesFeature.Action)
     case history(HistoryFeature.Action)
     case setActiveTab(ActiveTab)
     case task
@@ -71,17 +74,21 @@ struct AppFeature {
       SettingsFeature()
     }
 
+    Scope(state: \.modes, action: \.modes) { ModesFeature() }
+
     Scope(state: \.history, action: \.history) {
       HistoryFeature()
     }
 
     Reduce { state, action in
       switch action {
+      case .modes: return .none
       case .binding:
         return .none
         
       case .task:
         return .merge(
+          .send(.modes(.task)),
           startPasteLastTranscriptMonitoring(),
           ensureSelectedModelReadiness(),
           startPermissionMonitoring()
@@ -89,7 +96,7 @@ struct AppFeature {
         
       case .pasteLastTranscript:
         @Shared(.transcriptionHistory) var transcriptionHistory: TranscriptionHistory
-        guard let lastTranscript = transcriptionHistory.history.first?.text else {
+        guard let lastTranscript = transcriptionHistory.history.first(where: \.isUsableOutput)?.text else {
           return .none
         }
         return .run { _ in
@@ -112,6 +119,9 @@ struct AppFeature {
 
       case .transcription:
         return .none
+
+      case .settings(.toggleSaveTranscriptionHistory(false)):
+        return .send(.transcription(.historyDisabled))
 
       case .settings(.requestMicrophone):
         return .run { send in
@@ -141,6 +151,8 @@ struct AppFeature {
       case .settings:
         return .none
 
+      case let .history(.retryTranscript(transcript)):
+        return .send(.transcription(.retryHistorical(transcript)))
       case .history(.navigateToSettings):
         state.activeTab = .settings
         return .none
@@ -167,7 +179,7 @@ struct AppFeature {
 
       case .appActivated:
         // App became active - re-check permissions
-        return .send(.checkPermissions)
+        return .merge(.send(.checkPermissions), .send(.modes(.refresh)))
 
       case .modelStatusEvaluated:
         return .none
@@ -272,6 +284,10 @@ struct AppView: View {
         .buttonStyle(.plain)
         .tag(AppFeature.ActiveTab.settings)
 
+        Button { store.send(.setActiveTab(.modes)) } label: {
+          Label("Modes", systemImage: "text.bubble")
+        }.buttonStyle(.plain).tag(AppFeature.ActiveTab.modes)
+
         Button {
           store.send(.setActiveTab(.remappings))
         } label: {
@@ -306,6 +322,8 @@ struct AppView: View {
           inputMonitoringPermission: store.inputMonitoringPermission
         )
         .navigationTitle("Settings")
+      case .modes:
+        ModesView(store: store.scope(state: \.modes, action: \.modes)).navigationTitle("Modes")
       case .remappings:
         WordRemappingsView(store: store.scope(state: \.settings, action: \.settings))
           .navigationTitle("Transforms")

@@ -57,7 +57,7 @@ final class StoragePathsTests: XCTestCase {
         XCTAssertEqual(migrated.id, transcript.id)
         XCTAssertEqual(migrated.text, transcript.text)
         XCTAssertEqual(migrated.audioPath, p.recordings.appendingPathComponent("legacy-1/sample.wav"))
-        XCTAssertEqual(try Data(contentsOf: migrated.audioPath), Data([1, 2, 3]))
+        XCTAssertEqual(try Data(contentsOf: migrated.audioPath!), Data([1, 2, 3]))
         for original in [audio, history, old.appendingPathComponent("hex_settings.json")] {
             XCTAssertTrue(fm.fileExists(atPath: original.path))
         }
@@ -89,6 +89,16 @@ final class StoragePathsTests: XCTestCase {
         XCTAssertEqual(try Data(contentsOf: p.models.appendingPathComponent("missing.bin")), Data([3]))
     }
 
+    func testEmptyLegacyHistoryMigratesWithoutReplacingOriginal() throws {
+        let p = paths()
+        let source = support(p).appendingPathComponent("transcription_history.json")
+        try write(Data(), source)
+        try p.migrate()
+        XCTAssertTrue(try Data(contentsOf: source).isEmpty)
+        XCTAssertEqual(try JSONDecoder().decode(TranscriptionHistory.self, from: Data(contentsOf: p.history)), TranscriptionHistory())
+        XCTAssertTrue(fm.fileExists(atPath: p.data.appendingPathComponent(".unsandbox-migration-v1").path))
+    }
+
     func testInterruptedMigrationRetriesWithoutOverwritingPublishedSettings() throws {
         let p = paths()
         try write(Data("{}".utf8), support(p).appendingPathComponent("hex_settings.json"))
@@ -114,8 +124,8 @@ final class StoragePathsTests: XCTestCase {
         try write(JSONEncoder().encode(TranscriptionHistory(history: [transcript])), p.data.appendingPathComponent("transcription_history.json"))
         try p.migrate()
         let entry = try JSONDecoder().decode(TranscriptionHistory.self, from: Data(contentsOf: p.history)).history[0]
-        XCTAssertTrue(entry.audioPath.path.hasPrefix(p.recordings.path + "/imported/"))
-        XCTAssertEqual(try Data(contentsOf: entry.audioPath), Data([8]))
+        XCTAssertTrue(entry.audioPath!.path.hasPrefix(p.recordings.path + "/imported/"))
+        XCTAssertEqual(try Data(contentsOf: entry.audioPath!), Data([8]))
         XCTAssertTrue(fm.fileExists(atPath: audio.path))
     }
 
@@ -127,7 +137,7 @@ final class StoragePathsTests: XCTestCase {
         try write(JSONEncoder().encode(TranscriptionHistory(history: [entry])), p.data.appendingPathComponent("transcription_history.json"))
         try p.migrate()
         let migrated = try JSONDecoder().decode(TranscriptionHistory.self, from: Data(contentsOf: p.history)).history[0]
-        XCTAssertEqual(try Data(contentsOf: migrated.audioPath), Data([9]))
+        XCTAssertEqual(try Data(contentsOf: migrated.audioPath!), Data([9]))
         XCTAssertFalse(fm.fileExists(atPath: p.recordings.appendingPathComponent("legacy-0/legacy-0").path))
     }
 
@@ -166,6 +176,18 @@ final class StoragePathsTests: XCTestCase {
         let copiedLink = p.models.appendingPathComponent("linked")
         XCTAssertTrue(try copiedLink.resourceValues(forKeys: [.isSymbolicLinkKey]).isSymbolicLink == true)
         XCTAssertEqual(try fm.destinationOfSymbolicLink(atPath: copiedLink.path), target.path)
+    }
+
+    func testTranscriptWithoutAudioRoundTripsAndMigrates() throws {
+        let entry = Transcript(timestamp: Date(), text: "text only", audioPath: nil, duration: 1)
+        let bytes = try JSONEncoder().encode(TranscriptionHistory(history: [entry]))
+        XCTAssertNil(try JSONDecoder().decode(TranscriptionHistory.self, from: bytes).history[0].audioPath)
+        let p = paths()
+        try write(bytes, support(p).appendingPathComponent("transcription_history.json"))
+        try p.migrate()
+        let migrated = try JSONDecoder().decode(TranscriptionHistory.self, from: Data(contentsOf: p.history)).history[0]
+        XCTAssertNil(migrated.audioPath)
+        XCTAssertEqual(migrated.text, "text only")
     }
 
     func testDebugImportsOnlyItsOwnContainerAndRetainsMissingAudioReferences() throws {

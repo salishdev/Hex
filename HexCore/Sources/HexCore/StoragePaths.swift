@@ -59,13 +59,17 @@ public struct HexStoragePaths: Sendable {
         }
         if !(try exists(history, fileManager: fm)),
            let source = try sources.map({ $0.appendingPathComponent("transcription_history.json") }).first(where: { try exists($0, fileManager: fm) }) {
-            let bytes = try Data(contentsOf: source)
+            let original = try Data(contentsOf: source)
+            // File-backed history can exist as a zero-byte file before its first
+            // entry. There is no history to recover, but preserve that original
+            // and publish a valid empty history in the new layout. Nonempty,
+            // malformed files still stop migration rather than losing entries.
+            let bytes = original.isEmpty ? try JSONEncoder().encode(TranscriptionHistory()) : original
             let decoded = try JSONDecoder().decode(TranscriptionHistory.self, from: bytes)
             var json = try JSONSerialization.jsonObject(with: bytes) as! [String: Any]
             var entries = json["history"] as! [[String: Any]]
             for (index, transcript) in decoded.history.enumerated() {
-                let audio = transcript.audioPath
-                guard audio.isFileURL, try exists(audio, fileManager: fm) else { continue }
+                guard let audio = transcript.audioPath, audio.isFileURL, try exists(audio, fileManager: fm) else { continue }
                 var destination = recordings.appendingPathComponent("imported/\(transcript.id.uuidString).\(audio.pathExtension.isEmpty ? "wav" : audio.pathExtension)")
                 for (sourceIndex, root) in sources.enumerated() {
                     let prefix = root.appendingPathComponent("Recordings").standardizedFileURL.path + "/"

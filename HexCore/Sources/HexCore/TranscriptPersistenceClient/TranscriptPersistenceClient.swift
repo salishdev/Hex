@@ -4,7 +4,7 @@ import Foundation
 public struct TranscriptPersistenceClient: Sendable {
     public var save: @Sendable (
         _ result: String,
-        _ audioURL: URL,
+        _ audioURL: URL?, // nil saves the transcript without audio
         _ duration: TimeInterval,
         _ sourceAppBundleID: String?,
         _ sourceAppName: String?
@@ -17,13 +17,15 @@ extension TranscriptPersistenceClient: DependencyKey {
     public static let liveValue: TranscriptPersistenceClient = {
         return TranscriptPersistenceClient(
             save: { result, audioURL, duration, sourceAppBundleID, sourceAppName in
-                let fm = FileManager.default
-                let recordingsFolder = HexStoragePaths.live.recordings
-                try fm.createDirectory(at: recordingsFolder, withIntermediateDirectories: true)
-                
-                let filename = "\(Date().timeIntervalSince1970).wav"
-                let finalURL = recordingsFolder.appendingPathComponent(filename)
-                try fm.moveItem(at: audioURL, to: finalURL)
+                var finalURL: URL?
+                if let audioURL {
+                    let fm = FileManager.default
+                    let recordingsFolder = HexStoragePaths.live.recordings
+                    try fm.createDirectory(at: recordingsFolder, withIntermediateDirectories: true)
+                    let destination = recordingsFolder.appendingPathComponent("\(UUID().uuidString).wav")
+                    try fm.copyItem(at: audioURL, to: destination)
+                    finalURL = destination
+                }
                 
                 return Transcript(
                     timestamp: Date(),
@@ -35,7 +37,7 @@ extension TranscriptPersistenceClient: DependencyKey {
                 )
             },
             deleteAudio: { transcript in
-                FileManager.default.removeItemIfExists(at: transcript.audioPath)
+                if let audio = transcript.audioPath { FileManager.default.removeItemIfExists(at: audio) }
             }
         )
     }()

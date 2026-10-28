@@ -28,6 +28,7 @@ public struct HexSettings: Codable, Equatable, Sendable {
 	public var hotkey: HotKey
 	public var openOnLogin: Bool
 	public var showDockIcon: Bool
+	public var selectedModeID: String = "dictation"
 	public var selectedModel: String
 	public var useClipboardPaste: Bool
 	public var preventSystemSleep: Bool
@@ -41,6 +42,7 @@ public struct HexSettings: Codable, Equatable, Sendable {
 	public var selectedMicrophoneID: String?
 	public var saveTranscriptionHistory: Bool
 	public var maxHistoryEntries: Int?
+	public var saveRecordingAudio: Bool
 	public var pasteLastTranscriptHotkey: HotKey?
 	public var hasCompletedModelBootstrap: Bool
 	public var hasCompletedStorageMigration: Bool
@@ -77,6 +79,7 @@ public struct HexSettings: Codable, Equatable, Sendable {
 		selectedMicrophoneID: String? = nil,
 		saveTranscriptionHistory: Bool = true,
 		maxHistoryEntries: Int? = nil,
+		saveRecordingAudio: Bool = true,
 		pasteLastTranscriptHotkey: HotKey? = HexSettings.defaultPasteLastTranscriptHotkey,
 		hasCompletedModelBootstrap: Bool = false,
 		hasCompletedStorageMigration: Bool = false,
@@ -105,6 +108,7 @@ public struct HexSettings: Codable, Equatable, Sendable {
 		self.selectedMicrophoneID = selectedMicrophoneID
 		self.saveTranscriptionHistory = saveTranscriptionHistory
 		self.maxHistoryEntries = maxHistoryEntries
+		self.saveRecordingAudio = saveRecordingAudio
 		self.pasteLastTranscriptHotkey = pasteLastTranscriptHotkey
 		self.hasCompletedModelBootstrap = hasCompletedModelBootstrap
 		self.hasCompletedStorageMigration = hasCompletedStorageMigration
@@ -142,6 +146,7 @@ private enum HexSettingKey: String, CodingKey, CaseIterable {
 	case hotkey
 	case openOnLogin
 	case showDockIcon
+	case selectedModeID
 	case selectedModel
 	case useClipboardPaste
 	case preventSystemSleep
@@ -156,6 +161,7 @@ private enum HexSettingKey: String, CodingKey, CaseIterable {
 	case selectedMicrophoneID
 	case saveTranscriptionHistory
 	case maxHistoryEntries
+	case saveRecordingAudio
 	case pasteLastTranscriptHotkey
 	case hasCompletedModelBootstrap
 	case hasCompletedStorageMigration
@@ -230,6 +236,7 @@ private enum HexSettingsSchema {
 		SettingsField(.hotkey, keyPath: \.hotkey, default: defaults.hotkey).eraseToAny(),
 		SettingsField(.openOnLogin, keyPath: \.openOnLogin, default: defaults.openOnLogin).eraseToAny(),
 		SettingsField(.showDockIcon, keyPath: \.showDockIcon, default: defaults.showDockIcon).eraseToAny(),
+		SettingsField(.selectedModeID, keyPath: \.selectedModeID, default: defaults.selectedModeID).eraseToAny(),
 		SettingsField(.selectedModel, keyPath: \.selectedModel, default: defaults.selectedModel).eraseToAny(),
 		SettingsField(.useClipboardPaste, keyPath: \.useClipboardPaste, default: defaults.useClipboardPaste).eraseToAny(),
 		SettingsField(.preventSystemSleep, keyPath: \.preventSystemSleep, default: defaults.preventSystemSleep).eraseToAny(),
@@ -277,6 +284,7 @@ private enum HexSettingsSchema {
 				try container.encodeIfPresent(value, forKey: key)
 			}
 		).eraseToAny(),
+		SettingsField(.saveRecordingAudio, keyPath: \.saveRecordingAudio, default: defaults.saveRecordingAudio).eraseToAny(),
 		SettingsField(
 			.pasteLastTranscriptHotkey,
 			keyPath: \.pasteLastTranscriptHotkey,

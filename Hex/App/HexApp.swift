@@ -14,6 +14,8 @@ struct HexApp: App {
   
     var body: some Scene {
         MenuBarExtra {
+            ModeMenu(store: Self.appStore)
+            Divider()
             MenuBarCopyLastTranscriptButton()
 
             Button("Settings…") {

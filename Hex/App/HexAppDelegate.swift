@@ -148,6 +148,11 @@ class HexAppDelegate: NSObject, NSApplicationDelegate {
 	}
 
 	func applicationWillTerminate(_: Notification) {
+        if let recovery = HexApp.appStore.transcription.recovery, recovery.artifact.temporary, let url = recovery.artifact.url {
+            FileManager.default.removeItemIfExists(at: url)
+        }
+        HexApp.appStore.send(.transcription(.dismissResult))
+        TextProcessorClient.terminateRunsForAppExit()
 		// Wait for audio teardown before the process exits: a fire-and-forget Task here
 		// raced process exit, crashing inside AVAudioEngine teardown while tap callbacks
 		// were still in flight (#245). Pump the main run loop while waiting instead of
