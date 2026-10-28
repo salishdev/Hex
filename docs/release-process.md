@@ -18,9 +18,60 @@ The product name remains Hex while branding is being decided. Before the first p
 
 This development machine has Astere Software LLC certificates for team `WW59U84Z7X`. The packaging command requires an explicit team and keychain profile so other developers can use their own accounts.
 
-## Prepare a version
+## Guided release command
 
-The release maintainer reviews pending changesets, then runs:
+From a clean committed checkout, run the full process in an interactive terminal:
+
+```bash
+TEAM_ID=WW59U84Z7X BUILD_NUMBER=93 NOTARY_PROFILE=apple-developer-store-credentials \
+  bun run release:run
+```
+
+Replace `93` with an unused build number greater than the last shipped build. The command checks signing prerequisites, fetches tags, drafts missing changesets, pauses for editing, shows the Changesets plan, and asks before applying the version/changelog updates and creating a release commit. It then runs the release-tooling and core tests, packages the app, and generates release-specific notes. It pauses for you to confirm CI passed and test the packaged app. After a final prompt it pushes the current branch to `origin` and uploads a **draft** release to `salishdev/Hex`. It does not publish the release or deploy a Sparkle feed. The existing `bun run release` command remains packaging-only.
+
+Keep this terminal open while reviewing files at each prompt; answer `y` to continue or anything else to stop. To edit notes before upload, use the printed `build/releases/<version>-<build>/release-notes.md` path. Check both the package output and GitHub draft before publishing.
+
+Resume using the same environment variables and one of these options:
+
+- `--from version`: review and process existing changesets without redrafting them. Commit reviewed drafts first so the checkout is clean.
+- `--from package`: skip versioning when the release version/changelog are already committed. This is the appropriate starting point for a manually prepared release.
+- `--from draft`: reuse artifacts from a successful `release:run` packaging stage. The command verifies their recorded commit, version, build number, and checksums. It still asks for test confirmation and upload approval. For artifacts built directly with `bun run release`, create the draft manually using the command below.
+
+For example, after committing an already prepared version:
+
+```bash
+TEAM_ID=WW59U84Z7X BUILD_NUMBER=93 NOTARY_PROFILE=apple-developer-store-credentials \
+  bun run release:run --from package
+```
+
+`--since <ref>`, `--initial`, and `--bump patch|minor|major` can be passed when starting from preparation. A stopped run retains its changes and artifacts. After a versioning stop, review and commit prepared release metadata before using `--from package`. After a packaging failure, inspect the logs and remove the failed output directory before retrying. An existing draft is never overwritten; review it in GitHub if an upload was interrupted.
+
+## Prepare a version manually
+
+Start by fetching tags and gathering the committed changes since the nearest reachable stable release tag (`vX.Y.Z`):
+
+```bash
+git fetch origin --tags
+bun run release:prepare
+```
+
+Read `build/release-preparation.md` for the commit list and existing changeset summaries. The default command only writes this ignored report. It uses local git history, needs no GitHub API credentials, and preserves issue/PR references already in commit subjects. It does not fetch PR descriptions. Merge commits and prerelease tags are excluded; inspect merge resolutions separately if needed. Uncommitted code is outside the report.
+
+To draft a changeset for commits without an associated pending changeset:
+
+```bash
+bun run release:prepare --write
+# Override the draft's default patch bump when appropriate:
+# bun run release:prepare --write --bump minor
+```
+
+Review the generated `.changeset/release-draft-*.md` before versioning. Rewrite commit subjects into user-facing notes, combine related changes, remove internal maintenance, and check bump types and issue/PR references. Association means that a commit touched a currently pending changeset; it is a heuristic, not proof of coverage. Separately authored changesets can cause duplicate draft bullets, so compare against the existing summaries. All non-merge commits remain visible in the report for review.
+
+Provenance comments in generated drafts prevent repeated runs from drafting the same commits. Keep those comments when editing or combining summaries (including for commits intentionally omitted from notes). To change an existing draft's bump, edit its frontmatter; `--bump` only affects newly created drafts. No version, changelog, commit, tag, release, or feed is changed by preparation.
+
+Use `--since <tag-or-commit>` to choose a different ancestor as the baseline, particularly if the nearest tag is not the last published release. If no release tag exists, fetch tags or explicitly use `--initial` to review all history. Shallow checkouts must fetch full history first. The same range options apply to `--write`.
+
+The release maintainer then reviews pending changesets and runs:
 
 ```bash
 bun run changeset:status

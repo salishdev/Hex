@@ -7,6 +7,9 @@
   "type": "module",
   "scripts": {
     "release": "bash scripts/package-release.sh",
+    "release:run": "bun run tools/scripts/release.ts",
+    "release:prepare": "bun run tools/scripts/prepare-release.ts",
+    "test:release": "bun test tools/scripts/prepare-release.test.ts tools/scripts/release.test.ts",
     "changeset": "changeset",
     "changeset:add": "changeset",
     "changeset:add-ai": "bun run tools/scripts/add-changeset.ts",
