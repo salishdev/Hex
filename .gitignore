@@ -25,6 +25,7 @@ FluidAudio/
 node_modules/
 .npm-cache/
 .tmp/
+__pycache__/
 
 # Claude
 .claude/

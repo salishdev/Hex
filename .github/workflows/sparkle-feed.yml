@@ -1,0 +1,39 @@
+name: Publish Sparkle Feed
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: github-pages
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Gather published release metadata
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api --paginate --slurp repos/salishdev/Hex/releases > releases.json
+      - name: Verify feed metadata and build site
+        run: |
+          python3 -m unittest discover -s tools/scripts -p 'test_*.py'
+          python3 tools/scripts/prepare_sparkle_site.py releases.json _site
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: _site
+      - name: Deploy GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

@@ -21,7 +21,11 @@
 	</dict>
 	<key>NSInputMonitoringUsageDescription</key>
 	<string>Hex needs Input Monitoring permission so your global hotkey works in every app.</string>
-	<key>SUEnableInstallerLauncherService</key>
+	<key>SUFeedURL</key>
+	<string>https://salishdev.github.io/Hex/appcast.xml</string>
+	<key>SUPublicEDKey</key>
+	<string>aBpEf9RmpBzGgBZTxyZDxmmBo1WrmBLskHfl6SibteQ=</string>
+	<key>SUVerifyUpdateBeforeExtraction</key>
 	<true/>
 </dict>
 </plist>

@@ -132,12 +132,15 @@ export async function runRelease(root: string, options: Options, env: Record<str
   clean();
   if (git("rev-parse", "HEAD") !== head) throw new Error("HEAD changed after packaging. Rebuild from the intended release commit");
   if (!readFileSync(notesPath, "utf8").trim()) throw new Error("Release notes must not be empty");
+  run(["bun", "run", "release:sparkle", output, notesPath]);
+  const appcastPath = join(output, "appcast.xml");
+  if (!existsSync(appcastPath)) throw new Error("Sparkle appcast was not generated");
   await confirm(`Push this commit to origin and upload Hex ${version} to a DRAFT release on salishdev/Hex?`);
   run(["git", "push", "origin", "HEAD"]);
   run(["gh", "release", "create", `v${version}`,
-    join(output, `Hex-${version}.zip`), join(output, `Hex-${version}.dmg`), join(output, "SHA256SUMS"),
+    join(output, `Hex-${version}.zip`), join(output, `Hex-${version}.dmg`), join(output, "SHA256SUMS"), appcastPath,
     "--repo", "salishdev/Hex", "--target", head, "--draft", "--title", `Hex ${version}`, "--notes-file", notesPath]);
-  log(`Draft uploaded. Review it at https://github.com/salishdev/Hex/releases and publish when ready. Sparkle feed publishing is not yet configured.`);
+  log(`Draft uploaded. Review it at https://github.com/salishdev/Hex/releases and publish when ready. Publishing triggers deployment of the signed update appcast to GitHub Pages.`);
 }
 
 if (import.meta.main) {

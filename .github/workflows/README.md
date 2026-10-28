@@ -5,3 +5,5 @@
 Before app tests, CI runs `scripts/generate-project.sh`. This uses `.xcodegen-version` and bootstraps the checksummed official XcodeGen release if the runner does not have that exact version. `project.yml` and shared `.xcconfig` files define the project; generated project files and schemes are ignored. The app's `Package.resolved` inside `Hex.xcodeproj` and the independent HexCore lockfile stay committed. App tests require the resolved versions and link `IssueReportingTestSupport` explicitly.
 
 No repository secrets are needed for CI. See [the distribution guide](../../docs/release-process.md) for local signing, notarization, and reviewed GitHub Releases.
+
+`sparkle-feed.yml` deploys the appcast to GitHub Pages when a stable GitHub release is published, or by manual dispatch. Update archives are signed locally; the workflow only downloads and checks release metadata and deploys public files. It excludes drafts/prereleases and selects the highest Sparkle build number to prevent a late publication of an older release from rolling back the feed. Pages must be enabled with the GitHub Actions publishing source.

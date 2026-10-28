@@ -27,7 +27,7 @@ TEAM_ID=WW59U84Z7X BUILD_NUMBER=93 NOTARY_PROFILE=apple-developer-store-credenti
   bun run release:run
 ```
 
-Replace `93` with an unused build number greater than the last shipped build. The command checks signing prerequisites, fetches tags, drafts missing changesets, pauses for editing, shows the Changesets plan, and asks before applying the version/changelog updates and creating a release commit. It then runs the release-tooling and core tests, packages the app, and generates release-specific notes. It pauses for you to confirm CI passed and test the packaged app. After a final prompt it pushes the current branch to `origin` and uploads a **draft** release to `salishdev/Hex`. It does not publish the release or deploy a Sparkle feed. The existing `bun run release` command remains packaging-only.
+Replace `93` with an unused build number greater than the last shipped build. The command checks signing prerequisites, fetches tags, drafts missing changesets, pauses for editing, shows the Changesets plan, and asks before applying the version/changelog updates and creating a release commit. It then runs the release-tooling and core tests, packages the app, and generates release-specific notes. It pauses for you to confirm CI passed and test the packaged app. It signs the final DMG with the fork's Sparkle key and generates `appcast.xml`. After a final prompt it pushes the current branch to `origin` and uploads a **draft** release (including the appcast) to `salishdev/Hex`. Publishing the reviewed release triggers the Sparkle feed deployment workflow. The existing `bun run release` command remains packaging-only.
 
 Keep this terminal open while reviewing files at each prompt; answer `y` to continue or anything else to stop. To edit notes before upload, use the printed `build/releases/<version>-<build>/release-notes.md` path. Check both the package output and GitHub draft before publishing.
 
@@ -124,7 +124,27 @@ Use release-specific notes from the changelog, including any known limitations. 
 
 ## Updates and Homebrew
 
-The upstream Sparkle feed and public key have been removed. “Check for Updates” opens `https://github.com/salishdev/Hex/releases`. For automatic installation later, generate a new Sparkle key pair, add the fork-owned `SUFeedURL` and `SUPublicEDKey`, sign update archives, and publish an appcast. Keep the private key in Keychain. Test a real update between two signed fork builds before shipping it.
+Release builds use the fork-owned feed at `https://salishdev.github.io/Hex/appcast.xml` and the public key in `Hex/Info.plist`. Debug builds keep “Check for Updates” linked to GitHub Releases so development copies cannot install production builds. Hex 0.9.0 predates this integration and requires a manual download of the first Sparkle-enabled release.
+
+The private Ed25519 key is stored in this Mac's login Keychain under Sparkle account `com.salishdev.Hex`. It is separate from Apple Developer ID signing and never uploaded to GitHub. To inspect the public key or initialize another signing machine using an intentionally imported key, use the resolved package's tools:
+
+```bash
+build/SourcePackages/artifacts/sparkle/Sparkle/bin/generate_keys --account com.salishdev.Hex -p
+```
+
+Keep a secure backup of the Keychain/key before replacing this Mac. Do not generate a different key on another machine and publish it as an update to existing installations. Sparkle's documented key-rotation process applies when changing signing keys.
+
+`release:run` checks the packaged app's identity, version, build, feed URL, and embedded public key against the signing account, verifies checksums, and runs the pinned package's `generate_appcast`. Full signed DMG updates are used initially; delta generation is disabled. Notes are embedded as escaped HTML. To regenerate an appcast after editing notes before publishing:
+
+```bash
+bun run release:sparkle build/releases/<version>-<build> build/releases/<version>-<build>/release-notes.md
+```
+
+If Sparkle tools are not under the standard package-artifact directory, set `SPARKLE_BIN_DIR` to the `bin` directory from the resolved Sparkle package (no dependency upgrade is needed).
+
+On GitHub, enable Pages with **GitHub Actions** as the publishing source. `.github/workflows/sparkle-feed.yml` runs after a release is published or by manual dispatch. It lists public stable releases, downloads their attached `appcast.xml` files, validates release version, archive URL, size, and signature shape, and deploys the feed with the highest build number. Clients cryptographically verify the archive signature before extraction. Drafts and prereleases are excluded. No signing credentials are used in CI. Before the first Sparkle-enabled release, Pages serves an empty feed.
+
+After publishing, confirm the Pages workflow succeeds and the public feed contains the new build. Keep published DMGs and their signatures immutable. Test an actual update between signed builds before shipping the first Sparkle-enabled release.
 
 Homebrew distribution can follow the first public release; create a fork-owned cask with an exact version and SHA-256. The old upstream cask has been removed to avoid installing upstream builds.
 

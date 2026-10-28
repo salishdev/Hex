@@ -10,12 +10,15 @@ import SwiftUI
 final class CheckForUpdatesViewModel {
 	static let shared = CheckForUpdatesViewModel()
 
-	// No Sparkle connection until this fork has its own feed and signing key.
 	private let controller: SPUStandardUpdaterController?
 	private var anyCancellable: AnyCancellable?
 	var canCheckForUpdates = true
 
 	init() {
+		#if DEBUG
+		// Development builds use a different identity and should not install release builds.
+		controller = nil
+		#else
 		if let feed = Bundle.main.object(forInfoDictionaryKey: "SUFeedURL") as? String,
 		   URL(string: feed)?.scheme == "https",
 		   let key = Bundle.main.object(forInfoDictionaryKey: "SUPublicEDKey") as? String,
@@ -31,6 +34,7 @@ final class CheckForUpdatesViewModel {
 		} else {
 			controller = nil
 		}
+		#endif
 	}
 
 	func checkForUpdates() {

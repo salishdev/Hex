@@ -41,6 +41,7 @@ function fixture() {
       if (args[0] === "git" && !["push", "fetch"].includes(args[1]!)) return git(...args.slice(1));
       if (args[0] === "shasum") return execFileSync("shasum", args.slice(1), { cwd: output, encoding: "utf8" });
       if (args.join(" ") === "bun run release") artifacts();
+      if (args.slice(0, 3).join(" ") === "bun run release:sparkle") writeFileSync(join(output, "appcast.xml"), "test feed");
       return "";
     },
     confirm: async message => { prompts.push(message); },
@@ -56,6 +57,7 @@ test("packages a prepared commit and uploads only a draft with that commit and r
   expect(upload).toContain("--draft");
   expect(upload).toContain(repo.git("rev-parse", "HEAD"));
   expect(upload).toContain("v0.9.0");
+  expect(upload).toContain(join(repo.output, "appcast.xml"));
   expect(repo.prompts).toHaveLength(2);
   expect(repo.calls.some(args => args.join(" ") === "git push origin HEAD")).toBe(true);
   expect(readFileSync(join(repo.output, "release-notes.md"), "utf8")).toContain("New feature (#12)");
