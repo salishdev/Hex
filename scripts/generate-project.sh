@@ -2,6 +2,11 @@
 # Use an exact installed version, or bootstrap the official, checksummed binary.
 set -euo pipefail
 cd "$(dirname "$0")/.."
+# Use the release metadata for local builds too, without requiring Bun in Xcode CI.
+marketing_version=$(/usr/bin/plutil -extract version raw -o - package.json)
+[[ $marketing_version =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
+  echo 'package.json must contain a stable x.y.z version.' >&2; exit 1;
+}
 version=$(cat .xcodegen-version)
 checksum=090ec29491aad50aec10631bf6e62253fed733c50f3aab0f5ffc86bc170bdbef
 tool="${XCODEGEN_BIN:-$(command -v xcodegen || true)}"
@@ -29,7 +34,7 @@ fi
 # This is the sole committed file inside the generated project. Never delete it.
 lockfile=Hex.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved
 before=$(shasum -a 256 "$lockfile")
-"$tool" generate --spec project.yml
+HEX_MARKETING_VERSION="$marketing_version" "$tool" generate --spec project.yml
 [[ $(shasum -a 256 "$lockfile") == "$before" ]] || {
   echo 'Project generation changed Package.resolved; review before building.' >&2; exit 1;
 }

@@ -62,6 +62,7 @@ signature=$(codesign -dvv "$app" 2>&1)
   exit 1
 }
 bundle_id=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app/Contents/Info.plist")
+app_version=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$app/Contents/Info.plist")
 if [[ -d $destination ]]; then
   old_id=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$destination/Contents/Info.plist")
   old_requirement=$(codesign -d -r- "$destination" 2>&1 | sed -n 's/^designated => //p')
@@ -100,4 +101,4 @@ mv "$staging/Hex.app" "$destination"
 if [[ ${1:-} != --no-open ]]; then
   open "$destination"
 fi
-echo "Installed $destination ($bundle_id)."
+echo "Installed Hex $app_version at $destination ($bundle_id)."
